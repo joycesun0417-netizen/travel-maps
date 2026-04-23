@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>港澳四日旅行路线图 · 5.2-5.5</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --day1:#2D8C4E;--day2:#2563EB;--day3:#E06C2D;--day4:#9333EA;
+            --bg:#FAF9F7;--card-bg:#FFF;--text:#1A1A1A;--text-light:#6B7280;
+            --border:#E5E5E5;--shadow:rgba(0,0,0,.06);
+        }
+        body{font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+
+        /* === HEADER === */
+        .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(250,249,247,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+        .header-left{display:flex;align-items:center;gap:10px}
+        .header-logo{font-size:22px}
+        .header-title{font-size:16px;font-weight:700;letter-spacing:.5px}
+        .header-subtitle{font-size:11px;color:var(--text-light);font-weight:300;margin-top:1px}
+
+        /* === LAYOUT === */
+        .main-container{display:flex;height:100vh;padding-top:52px}
+        .sidebar{position:relative;width:340px;min-width:340px;height:calc(100vh - 52px);overflow-y:auto;background:var(--bg);border-right:1px solid var(--border);padding:14px;scrollbar-width:thin;scrollbar-color:#ccc transparent}
+        .sidebar::-webkit-scrollbar{width:4px}
+        .sidebar::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
+        /* === SIDEBAR TOGGLE === */
+        .sidebar-toggle{position:fixed;top:50%;left:340px;transform:translateY(-50%);width:24px;height:56px;background:var(--card-bg);border:1px solid var(--border);border-left:none;border-radius:0 10px 10px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1001;box-shadow:2px 0 8px rgba(0,0,0,.08);font-size:13px;color:var(--text-light);transition:left .35s cubic-bezier(.4,0,.2,1)}
+        .sidebar-toggle:hover{background:#f0f0f0;color:var(--text)}
+        .sidebar-toggle.collapsed{left:0}
+        .sidebar{position:relative;transition:width .35s cubic-bezier(.4,0,.2,1),min-width .35s cubic-bezier(.4,0,.2,1),padding .35s cubic-bezier(.4,0,.2,1),opacity .3s}
+        .sidebar.collapsed{width:0!important;min-width:0!important;padding:0!important;overflow:hidden;opacity:0;border-right:none}
+        
+        .sidebar-expand-btn{position:fixed;top:50%;left:0;transform:translateY(-50%);width:24px;height:56px;background:var(--card-bg);border:1px solid var(--border);border-left:none;border-radius:0 10px 10px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1001;box-shadow:2px 0 8px rgba(0,0,0,.06);transition:all .2s;font-size:12px;color:var(--text-light);display:none}
+        .sidebar-expand-btn:hover{background:#f0f0f0;color:var(--text)}
+        .sidebar-expand-btn.show{display:flex}
+
+        .map-container{flex:1;position:relative}
+        #map{width:100%;height:100%}
+
+        
+        /* === EDIT MODE === */
+        .edit-bar{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:800;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);border:1px solid var(--border);display:none;font-size:13px}
+        .edit-bar.show{display:flex}
+        .edit-bar span{color:var(--text);font-weight:500}
+        .edit-bar-btn{padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:12px;font-weight:500;transition:all .2s}
+        .edit-bar-btn.save{background:#2D8C4E;color:#fff;border-color:#2D8C4E}
+        .edit-bar-btn.save:hover{background:#246e3e}
+        .edit-bar-btn.cancel{background:#f5f5f5;color:#666}
+        .edit-bar-btn.cancel:hover{background:#e5e5e5}
+        
+        
+
+        /* === DETAIL PANEL (right side of map) === */
+        .detail-panel{position:absolute;top:0;right:0;width:380px;height:100%;z-index:900;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);scrollbar-width:thin}
+        .detail-panel.open{transform:translateX(0)}
+        .detail-panel::-webkit-scrollbar{width:4px}
+        .detail-panel::-webkit-scrollbar-thumb{background:#ddd;border-radius:4px}
+        .detail-close{position:static;flex-shrink:0;width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,.06);cursor:pointer;font-size:16px;color:#666;display:flex;align-items:center;justify-content:center;z-index:10;transition:all .2s}
+        .detail-close:hover{background:rgba(0,0,0,.12);color:#333}
+
+        .detail-image{width:100%;height:200px;overflow:hidden;background:linear-gradient(135deg,#f0ede8,#e8e4df);position:relative}
+        .detail-image img{width:100%;height:100%;object-fit:cover}
+        .detail-image-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px}
+        .detail-day-badge{position:absolute;top:12px;left:12px;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;color:#fff;backdrop-filter:blur(6px)}
+
+        .detail-header{padding:18px 18px 12px}
+        .detail-title{font-size:20px;font-weight:700;padding-right:36px}
+        .detail-meta{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+        .detail-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;background:#f3f4f6;color:var(--text-light)}
+
+        .detail-body{padding:0 18px 20px}
+        .detail-section{margin-bottom:14px}
+        .detail-section:last-child{margin-bottom:0}
+        .detail-section-title{font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+        .detail-section-content{font-size:12.5px;line-height:1.8;color:var(--text)}
+        .detail-food-item{display:flex;align-items:flex-start;gap:7px;padding:4px 0}
+        .detail-food-emoji{font-size:15px;flex-shrink:0;margin-top:1px}
+        .detail-food-name{font-weight:600;font-size:12.5px}
+        .detail-food-desc{font-size:10.5px;color:var(--text-light);margin-top:1px}
+        .detail-tip{background:#f8f6f3;border-radius:8px;padding:8px 12px;font-size:11.5px;line-height:1.7;color:var(--text-light)}
+        .detail-tip strong{color:var(--text)}
+        .photo-spot-item{display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:3px}
+
+        
+        .detail-top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(250,249,247,.8);position:sticky;top:0;z-index:10}
+        .edit-loc-top{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;color:var(--text-light);display:flex;align-items:center;gap:4px;transition:all .2s}
+        .edit-loc-top:hover{background:rgba(0,0,0,.04);color:var(--text)}
+        /* === DETAIL NAV TOP === */
+        .detail-nav-top{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(250,249,247,.8)}
+        .detail-nav-btn{padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:11px;font-weight:500;color:var(--text-light);transition:all .2s;display:flex;align-items:center;gap:4px}
+        .detail-nav-btn:hover{background:#f0f0f0;color:var(--text)}
+        .detail-nav-btn:disabled{opacity:.3;cursor:default;pointer-events:none}
+        .detail-nav-btn .arrow{font-size:10px}
+        .detail-nav-counter{font-size:11px;color:var(--text-light);font-weight:400}
+
+        .detail-next-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;margin-top:16px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;color:#fff}
+        .detail-next-btn:hover{opacity:.88;transform:translateY(-1px)}
+        .detail-next-btn .arrow{font-size:16px}
+
+        /* === DAY FILTER (map overlay) === */
+        .day-filter{position:absolute;top:12px;left:54px;z-index:800;display:flex;gap:5px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);padding:6px 10px;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+        .day-tab{padding:5px 13px;border-radius:16px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text-light);transition:all .3s;white-space:nowrap;font-family:inherit}
+        .day-tab:hover{border-color:#aaa}
+        .day-tab.active{color:#fff}
+        .day-tab.active[data-day="all"]{background:var(--text);border-color:var(--text)}
+        .day-tab.active[data-day="1"]{background:var(--day1);border-color:var(--day1)}
+        .day-tab.active[data-day="2"]{background:var(--day2);border-color:var(--day2)}
+        .day-tab.active[data-day="3"]{background:var(--day3);border-color:var(--day3)}
+        .day-tab.active[data-day="4"]{background:var(--day4);border-color:var(--day4)}
+
+        /* === SIDEBAR === */
+        .day-section{margin-bottom:16px}
+        .day-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;border-radius:10px;background:#fff;border:1px solid var(--border)}
+        .day-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+        .day-header-text h3{font-size:14px;font-weight:700}
+        .day-header-text p{font-size:10px;color:var(--text-light);margin-top:1px}
+        .timeline{position:relative;padding-left:22px}
+        .timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--border);border-radius:1px}
+        .timeline-item{position:relative;margin-bottom:8px;cursor:pointer}
+        .timeline-dot{position:absolute;left:-18px;top:12px;width:11px;height:11px;border-radius:50%;border:2.5px solid var(--day1);background:#fff;z-index:2;transition:all .3s}
+        .timeline-item:hover .timeline-dot,.timeline-item.active .timeline-dot{transform:scale(1.3)}
+        .timeline-item:hover .timeline-dot,.timeline-item.active .timeline-dot{background:var(--day1)}
+        .timeline-item.day2 .timeline-dot{border-color:var(--day2)}.timeline-item.day2:hover .timeline-dot,.timeline-item.day2.active .timeline-dot{background:var(--day2)}
+        .timeline-item.day3 .timeline-dot{border-color:var(--day3)}.timeline-item.day3:hover .timeline-dot,.timeline-item.day3.active .timeline-dot{background:var(--day3)}
+        .timeline-item.day4 .timeline-dot{border-color:var(--day4)}.timeline-item.day4:hover .timeline-dot,.timeline-item.day4.active .timeline-dot{background:var(--day4)}
+        .spot-card{background:#fff;border-radius:10px;padding:10px 12px;border:1.5px solid transparent;transition:all .3s;box-shadow:0 1px 3px var(--shadow)}
+        .spot-card:hover{border-color:var(--day1);box-shadow:0 3px 10px rgba(45,140,78,.1);transform:translateY(-1px)}
+        .timeline-item.active .spot-card{border-color:var(--day1);box-shadow:0 4px 14px rgba(45,140,78,.15)}
+        .timeline-item.day2 .spot-card:hover,.timeline-item.day2.active .spot-card{border-color:var(--day2);box-shadow:0 4px 14px rgba(37,99,235,.12)}
+        .timeline-item.day3 .spot-card:hover,.timeline-item.day3.active .spot-card{border-color:var(--day3);box-shadow:0 4px 14px rgba(224,108,45,.12)}
+        .timeline-item.day4 .spot-card:hover,.timeline-item.day4.active .spot-card{border-color:var(--day4);box-shadow:0 4px 14px rgba(147,51,234,.12)}
+        .spot-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+        .spot-name{font-size:13px;font-weight:600}
+        .spot-time{font-size:10px;color:var(--text-light);background:#f5f3f0;padding:2px 7px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+        .spot-tags{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+        .spot-tag{font-size:9px;padding:1px 6px;border-radius:6px;background:#ECFDF5;color:var(--day1);font-weight:500}
+        .spot-tag.food{background:#FFF7ED;color:var(--day3)}.spot-tag.transport{background:#EFF6FF;color:var(--day2)}.spot-tag.shop{background:#F5F3FF;color:var(--day4)}.spot-tag.photo{background:#FEF2F2;color:#DC2626}
+        .transport-connector{display:flex;align-items:center;gap:5px;padding:3px 0 3px 3px;font-size:10px;color:var(--text-light)}
+        .transport-line{flex:1;height:1px;background:repeating-linear-gradient(90deg,#d0d0d0,#d0d0d0 4px,transparent 4px,transparent 8px)}
+        .transport-duration{font-size:9px;color:#999}
+
+        /* === MAP MARKERS === */
+        .custom-marker{position:relative}
+        .marker-pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:all .3s;border:2px solid #fff}
+        .marker-pin.day1{background:var(--day1)}.marker-pin.day2{background:var(--day2)}.marker-pin.day3{background:var(--day3)}.marker-pin.day4{background:var(--day4)}.marker-pin.hotel{background:#E11D48}
+        .marker-number{transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700;font-family:'Noto Sans SC',sans-serif}
+        .marker-label{position:absolute;top:-6px;left:34px;white-space:nowrap;background:rgba(255,255,255,.95);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,.15);pointer-events:none;font-family:'Noto Sans SC',sans-serif;border:1px solid rgba(0,0,0,.06)}
+
+        /* === LEGEND === */
+        .map-legend{position:absolute;bottom:20px;left:54px;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:10px;padding:12px 15px;box-shadow:0 2px 10px rgba(0,0,0,.08);z-index:800;font-size:11px}
+        .legend-title{font-weight:700;margin-bottom:6px;font-size:11px}
+        .legend-item{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+        .legend-color{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+        .legend-text{color:var(--text-light);font-size:10px}
+
+        /* === BUFFER BADGE === */
+        .buffer-tag{font-size:9px;padding:1px 6px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:500}
+
+        /* === MAP TILE LABEL SUPPRESSION === */
+        .leaflet-tile-pane{
+            filter: saturate(0.3) brightness(1.12) contrast(0.85);
+        }
+        /* Keep our overlays (markers, polylines) crisp and vivid - they sit in the overlay pane */
+        .leaflet-overlay-pane, .leaflet-marker-pane, .leaflet-shadow-pane, .leaflet-popup-pane{
+            filter: saturate(1) brightness(1) contrast(1);
+        }
+
+        /* === SELECTED MARKER HIGHLIGHT === */
+        .marker-pin.selected{
+            transform:rotate(-45deg) scale(1.45);
+            box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px currentColor, 0 4px 16px rgba(0,0,0,.35);
+            z-index:9000 !important;
+            transition:transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s ease;
+        }
+        .marker-pin.selected.day1{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day1), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.day2{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day2), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.day3{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day3), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.day4{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day4), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.hotel{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px #E11D48, 0 4px 16px rgba(0,0,0,.35)}
+        @keyframes pulse-ring{
+            0%{transform:scale(1);opacity:.6}
+            100%{transform:scale(2.5);opacity:0}
+        }
+        .marker-pulse{
+            position:absolute;top:50%;left:50%;width:30px;height:30px;margin:-15px 0 0 -15px;
+            border-radius:50%;pointer-events:none;z-index:1;
+        }
+        .marker-pulse::before{
+            content:'';position:absolute;inset:0;border-radius:50%;
+            animation:pulse-ring 1.5s cubic-bezier(.215,.61,.355,1) infinite;
+        }
+        .marker-pulse.day1::before{background:var(--day1)}
+        .marker-pulse.day2::before{background:var(--day2)}
+        .marker-pulse.day3::before{background:var(--day3)}
+        .marker-pulse.day4::before{background:var(--day4)}
+        .marker-pulse.hotel::before{background:#E11D48}
+        .custom-marker{z-index:500 !important}
+        .custom-marker.marker-active{z-index:9999 !important}
+        .marker-label-selected{background:rgba(30,30,30,.9) !important;color:#fff !important;font-weight:700 !important;padding:3px 9px !important;border:none !important;box-shadow:0 2px 10px rgba(0,0,0,.3) !important}
+    
+        /* === ADD SPOT MODAL === */
+        .add-spot-fab{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#7C3AED);color:#fff;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,.35);z-index:1100;display:flex;align-items:center;justify-content:center;transition:all .3s}
+        .add-spot-fab:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(37,99,235,.45)}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px}
+        .modal-overlay.show{display:flex}
+        .modal-box{background:#fff;border-radius:16px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 24px 48px rgba(0,0,0,.2);animation:modalIn .25s ease}
+        @keyframes modalIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .modal-title{font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+        .modal-field{margin-bottom:14px}
+        .modal-label{font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:4px;display:block}
+        .modal-input,.modal-select,.modal-textarea{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#FAFAFA;transition:border .2s}
+        .modal-input:focus,.modal-select:focus,.modal-textarea:focus{outline:none;border-color:#2563EB;background:#fff}
+        .modal-textarea{resize:vertical;min-height:60px}
+        .modal-row{display:flex;gap:10px}
+        .modal-row .modal-field{flex:1}
+        .modal-actions{display:flex;gap:10px;margin-top:18px}
+        .modal-btn{flex:1;padding:10px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text);transition:all .2s;font-family:inherit}
+        .modal-btn.primary{background:linear-gradient(135deg,#2563EB,#7C3AED);color:#fff;border-color:transparent}
+        .modal-btn.primary:hover{opacity:.9}
+        .modal-btn:hover{background:#F3F4F6}
+        .modal-hint{font-size:11px;color:var(--text-light);margin-top:3px}
+        .modal-pick-btn{padding:6px 12px;border-radius:6px;border:1.5px dashed var(--border);background:#FAFAFA;cursor:pointer;font-size:12px;color:var(--text-light);transition:all .2s;display:inline-flex;align-items:center;gap:4px}
+        .modal-pick-btn:hover{border-color:#2563EB;color:#2563EB}
+        .modal-pick-btn.active{border-color:#2D8C4E;color:#2D8C4E;background:#2D8C4E10}
+
+        /* === FULLSCREEN DETAIL === */
+        .detail-fullscreen-btn{width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,.06);cursor:pointer;font-size:13px;color:#666;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+        .detail-fullscreen-btn:hover{background:rgba(0,0,0,.12);color:#333}
+        .detail-panel.fullscreen{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:100%!important;max-width:100%!important;border-radius:0!important;border:none!important;z-index:2500!important;transform:translateX(0)!important}
+        .detail-panel.fullscreen .detail-image img{max-height:50vh;object-fit:contain}
+
+        /* === RESPONSIVE IMPROVEMENTS === */
+        @media(max-width:900px){
+            .main-container{flex-direction:column}
+            .sidebar{width:100%;min-width:auto;height:35vh;border-right:none;border-bottom:1px solid var(--border)}
+            .map-container{height:65vh}
+            .detail-panel{width:100%;height:60%;top:auto;bottom:0;right:0;transform:translateY(100%);border-left:none;border-top:1px solid var(--border);border-radius:16px 16px 0 0}
+            .detail-panel.open{transform:translateY(0)}
+            .detail-panel.fullscreen{height:100%;top:0;border-radius:0;border-top:none}
+            .day-filter{left:10px;top:10px;flex-wrap:wrap;max-width:calc(100% - 20px)}
+            .add-spot-fab{bottom:16px;right:16px;width:44px;height:44px;font-size:20px}
+            .modal-box{margin:8px;max-height:90vh;padding:18px}
+            .sidebar-toggle,.sidebar-expand-btn{display:none!important}
+            .map-legend{display:none}
+        }
+        @media(max-width:480px){
+            .header{padding:8px 12px}
+            .header-title{font-size:15px}
+            .header-subtitle{font-size:10px}
+            .detail-panel{height:70%}
+            .detail-top-bar{padding:6px 10px}
+            .detail-nav-top{padding:6px 10px}
+            .detail-nav-btn{padding:3px 8px;font-size:10px}
+            .day-tab{padding:4px 10px;font-size:11px}
+            .modal-box{padding:14px}
+        }
+
+    
+        /* ===== SYNC TOOLBAR ===== */
+        .sync-toolbar{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column-reverse;gap:10px;z-index:1100;align-items:flex-end}
+        .fab-btn{width:48px;height:48px;border-radius:50%;color:#fff;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;transition:all .3s;position:relative}
+        .fab-btn:hover{transform:scale(1.08)}
+        .fab-btn.primary{background:linear-gradient(135deg,#2563EB,#7C3AED);width:52px;height:52px;font-size:26px}
+        .fab-btn.sync{background:linear-gradient(135deg,#059669,#10B981)}
+        .fab-btn.reset{background:linear-gradient(135deg,#E06C2D,#DC2626);width:40px;height:40px;font-size:16px}
+        .fab-btn .fab-badge{position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:10px;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;padding:0 4px}
+        .fab-menu{position:absolute;bottom:56px;right:0;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:8px 0;min-width:200px;display:none;animation:modalIn .2s ease}
+        .fab-menu.show{display:block}
+        .fab-menu-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:14px;color:#1A1A1A;white-space:nowrap;transition:background .15s}
+        .fab-menu-item:hover{background:#F3F4F6}
+        .fab-menu-item .menu-icon{font-size:18px;width:24px;text-align:center}
+        .fab-menu-divider{height:1px;background:#E5E7EB;margin:4px 12px}
+        .sync-toast{position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+        .sync-toast.show{opacity:1}
+        .sync-status{font-size:11px;color:#6B7280;text-align:center;padding:4px 8px;background:rgba(255,255,255,.9);border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.1);max-width:160px;line-height:1.3;display:none}
+        .sync-status.has-data{display:block}
+        @media(max-width:480px){
+            .sync-toolbar{bottom:16px;right:16px;gap:8px}
+            .fab-btn{width:44px;height:44px;font-size:20px}
+            .fab-btn.primary{width:48px;height:48px;font-size:22px}
+            .fab-btn.reset{width:36px;height:36px;font-size:14px}
+            .fab-menu{min-width:180px}
+        }
+
+        </style>
+</head>
+<body>
+<div class="header">
+    <div class="header-left">
+        <span class="header-logo">🇭🇰</span>
+        <div>
+            <div class="header-title">港澳四日漫游</div>
+            <div class="header-subtitle">2026.05.02 — 05.05 · 港岛 · 九龙 · 凼仔 · 澳门半岛</div>
+        </div>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="sidebar" id="sidebar"></div>
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="收起侧边栏">◀</button>
+    
+    <button class="sidebar-expand-btn" id="sidebarExpand" onclick="toggleSidebar()" title="展开侧边栏">▶</button>
+    <div class="map-container">
+        <div id="map"></div><div class="edit-bar" id="editBar"><span>📍 拖动标记到正确位置</span><button class="edit-bar-btn save" onclick="saveMarkerPosition()">✓ 保存</button><button class="edit-bar-btn cancel" onclick="cancelEditPosition()">✗ 取消</button></div>
+        <div class="day-filter" id="dayFilter">
+            <div class="day-tab active" data-day="all" onclick="filterDay('all')">全部</div>
+            <div class="day-tab" data-day="1" onclick="filterDay(1)">Day1 · 5/2</div>
+            <div class="day-tab" data-day="2" onclick="filterDay(2)">Day2 · 5/3</div>
+            <div class="day-tab" data-day="3" onclick="filterDay(3)">Day3 · 5/4</div>
+            <div class="day-tab" data-day="4" onclick="filterDay(4)">Day4 · 5/5</div>
+        </div>
+        <div class="map-legend">
+            <div class="legend-title">图例</div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day1)"></div><span class="legend-text">Day1 港岛初见</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day2)"></div><span class="legend-text">Day2 九龙漫步</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day3)"></div><span class="legend-text">Day3 赴澳门·凼仔</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day4)"></div><span class="legend-text">Day4 澳门半岛</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:#E11D48"></div><span class="legend-text">酒店住宿</span></div>
+        </div>
+        <!-- RIGHT-SIDE DETAIL PANEL -->
+        <div class="detail-panel" id="detailPanel">
+            <div class="detail-top-bar"><button class="edit-loc-top" id="detailEditBtn">✏️ 调整位置</button><div style="display:flex;gap:6px;align-items:center"><button class="detail-fullscreen-btn" onclick="toggleDetailFullscreen()" title="全屏">⛶</button><button class="detail-close" onclick="closeDetail()">×</button></div></div>
+            <div class="detail-nav-top" id="detailNavTop"></div>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===================== SPOT DATA =====================
+const spots = [
+    // ========== DAY 1 ==========
+    { id:'hotel1', name:'富豪香港酒店', day:1, order:1, time:'14:00 入住',
+      lat:22.279191, lng:114.186831, type:'hotel',
+      tags:['🏨 住宿'], tagClasses:[''],
+      image:'https://dynamic-media-cdn.tripadvisor.com/media/photo-o/19/76/02/15/executive-club-room.jpg?w=900&h=500&s=1',
+      address:'铜锣湾怡和街88号',
+      desc:'Day1-2 住宿，毗邻铜锣湾核心商圈，步行可达时代广场、SOGO百货，交通四通八达。',
+      foods:[{emoji:'🥐',name:'酒店稍作休息',desc:'入住放好行李后即可出发探索'}],
+      photos:['📸 大堂复古水晶灯'],
+      tips:'14:00 入住后建议小憩30分钟，换上轻便装备，从铜锣湾出发开始港岛半日游。',
+      transport_to_next:{mode:'🚶 步行',desc:'酒店出门直达百德新街',duration:'约3分钟'}
+    },
+    { id:'cwb', name:'百德新街', day:1, order:2, time:'14:30-16:00',
+      lat:22.280579, lng:114.185532, type:'shop',
+      tags:['🛍️ 购物','📸 打卡'], tagClasses:['shop','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQI-QavWiktMkFz_brS2N7AeuS7_bP4HXiMQ&s',
+      address:'铜锣湾百德新街',
+      desc:'从酒店步行即到的潮流街区，集合各种本地品牌和潮店，也是拍照打卡的好去处。街道两旁的霓虹灯牌和港式建筑非常有香港味道。',
+      foods:[
+        {emoji:'🍜',name:'麦奀云吞面世家',desc:'百年手工竹升面，鲜虾云吞必点'},
+        {emoji:'🧇',name:'妈咪鸡蛋仔',desc:'米其林推荐，外脆内软蛋仔'}
+      ],
+      photos:['📸 百德新街港式霓虹招牌','📸 街头潮人穿搭抓拍'],
+      tips:'酒店出来先逛逛百德新街感受港味街头氛围。去太平山推荐两条路线：Plan A 港铁到中环+山顶缆车（上山坐左边看海景）；Plan B 中环5/6号码头乘15号双层巴士直达山顶，沿途风景也很棒。',
+      transport_to_next:{mode:'🚆 港铁/🚌 巴士',desc:'Plan A：港岛线铜锣湾→中环(J2出口)，步行10min到山顶缆车站（上山坐左边，下山坐右边）。Plan B：中环站A口到中环5/6号码头，乘15号双层巴士直达山顶',duration:'约25-35分钟'}
+    },    { id:'peak', name:'太平山顶', day:1, order:3, time:'16:30-18:30',
+      lat:22.2759, lng:114.1455, type:'landmark',
+      tags:['⛰️ 地标','🌅 日落','📸 全景'], tagClasses:['','photo','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn9H8jHE9ETStl6ZuEkfvxkONhvQL1qHNIig&s',
+      address:'香港岛太平山顶',
+      desc:'海拔552米，俯瞰整个维港的最佳视角！建议提前1小时上山，先在卢吉道散步拍照，然后到凌霄阁摩天台同时欣赏金色日落和璀璨夜景。预留约1.5-2小时充分享受。',
+      foods:[{emoji:'☕',name:'山顶翠华餐厅',desc:'可在山顶吃简餐边看夜景'},{emoji:'🍦',name:'Pacific Coffee 山顶店',desc:'观景咖啡，俯瞰维港'}],
+      photos:['📸 凌霄阁摩天台360°全景','📸 卢吉道步道——港岛南北双面风光','📸 狮子亭——经典维港俯瞰位'],
+      tips:'⛰️ 山顶缆车单程约HK$62，强烈建议网上提前买快速通关套票（现场排队1-2小时）。上山坐左边看维港海景，下山坐右边。若走Plan B 15号巴士上山，可坐在上层前排，沿途风景绝佳。山顶先走卢吉道拍照，再到凌霄阁看日落。缆车末班22:00。5月日落约18:40，建议18:15前到达。',
+      transport_to_next:{mode:'🚌 巴士',desc:'太平山顶 → 铜锣湾酒店',duration:'约25分钟'}
+    },
+    { id:'return_hotel1', noMarker:true, name:'返回富豪香港酒店', day:1, order:4, time:'21:00',
+      lat:22.2782, lng:114.1823, type:'hotel',
+      tags:['🏨 回酒店'], tagClasses:[''],
+      image:'https://images.unsplash.com/photo-1536599424071-0b4a3f68a5fd?w=800&q=80',
+      address:'铜锣湾怡和街88号',
+      desc:'从尖沙咀搭港铁荃湾线到金钟站，换乘港岛线到铜锣湾站，步行5分钟回酒店。也可直接打的士，约HK$80-100。',
+      foods:[{emoji:'🍺',name:'铜锣湾宵夜',desc:'酒店附近有多家深夜食堂和便利店'}],
+      photos:[],
+      tips:'🚇 港铁路线：尖沙咀站 → 荃湾线到金钟 → 换港岛线到铜锣湾站E出口，步行5分钟。末班车约凌晨1:00。'
+    },
+
+    // ========== DAY 2 · 九龙深度游 ==========
+    { id:'hotel2', name:'九龙香格里拉', day:2, order:1, time:'09:00 出发',
+      lat:22.297179,lng:114.177086, type:'hotel',
+      tags:['🏨 住宿'], tagClasses:[''],
+      image:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+      address:'尖沙咀柯士甸道西64号',
+      desc:'Day2-3的住宿基地，毗邻尖沙咀核心区域。早餐后轻装出发，先北上旺角油麻地，下午回尖沙咀逛K11，傍晚坐H2落日巴士。',
+      foods:[{emoji:'🥐',name:'香格里拉自助早餐',desc:'品质一流，中西式都有'}],
+      photos:['📸 维港海景房视角绝佳'],
+      tips:'建议寄存大件行李，轻装出发。从酒店步行到港铁尖沙咀站约5分钟。',
+      transport_to_next:{mode:'🚇 港铁',desc:'尖沙咀站 → 旺角站',duration:'约8分钟'}
+    },
+    { id:'mongkok', name:'旺角 · 女人街', day:2, order:2, time:'09:30-11:30',
+      lat:22.3193, lng:114.1694, type:'shop',
+      tags:['🛍️ 购物','🏮 市井'], tagClasses:['shop',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpzKiVZl-LFYs-ZnJ3C2UQy-EUOMGSiUSlIg&s',
+      address:'旺角通菜街（女人街）、花园街一带',
+      desc:'香港最热闹的市井商圈。女人街摊档琳琅满目，花园街是运动鞋天堂，波鞋街值得一逛。上午人少更舒适。',
+      foods:[
+        {emoji:'🍜',name:'富记粥品',desc:'旺角老字号，及第粥必点'},
+        {emoji:'🧇',name:'鸡蛋仔',desc:'街头必试小吃'}
+      ],
+      photos:['📸 女人街档口全景','📸 波鞋街潮拍'],
+      tips:'上午人少，逛街购物更舒适。砍价是必备技能！花园街球鞋值得淘。',
+      transport_to_next:{mode:'🚶 步行',desc:'旺角 → 油麻地',duration:'约10分钟'}
+    },
+    { id:'yaumatei', name:'油麻地', day:2, order:3, time:'11:45-13:00',
+      lat:22.3123, lng:114.1706, type:'landmark',
+      tags:['🏮 市井','🍜 美食'], tagClasses:['','food'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzSQ0Muc22s9FFxBL2gJskSzJBk-1CqyG4Ig&s',
+      address:'油麻地庙街、上海街一带',
+      desc:'最具老香港风情的街区。天后庙、果栏、上海街618活化唐楼都值得探访。顺便在这一带吃午餐。',
+      foods:[
+        {emoji:'🍮',name:'佳佳甜品',desc:'米其林推荐，芝麻糊、杏仁露必点'},
+        {emoji:'🥛',name:'澳洲牛奶公司',desc:'招牌蛋白炖鲜奶，排队也值'},
+        {emoji:'🍜',name:'庙街小食',desc:'各种街头小吃，边逛边吃'}
+      ],
+      photos:['📸 庙街牌楼经典港片取景','📸 上海街618唐楼活化建筑','📸 果栏水果市场烟火气'],
+      tips:'中午在油麻地解决午餐，佳佳甜品和澳洲牛奶公司都在附近。',
+      transport_to_next:{mode:'🚇 港铁',desc:'油麻地 → 尖沙咀',duration:'约5分钟'}
+    },
+    { id:'k11musea', name:'K11 Musea + Art Mall', day:2, order:4, time:'13:30-17:00',
+      lat:22.2955, lng:114.1743, type:'shop',
+      tags:['🛍️ 高奢','🎨 艺术'], tagClasses:['shop',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0QBgTfYuWNK6SeeOWqF0zPll1-m_0ISKCIg&s',
+      address:'尖沙咀梳士巴利道18号',
+      desc:'号称"文化硅谷"的艺术购物商场。LV、Chanel等高奢品牌齐全，B2层MoMA Design Store值得打卡。K11 Art Mall在隔壁，更多本地设计师品牌。预留3.5小时慢慢逛+下午茶。',
+      foods:[
+        {emoji:'☕',name:'Elephant Grounds',desc:'K11内人气咖啡，拿铁拉花超美'},
+        {emoji:'🍰',name:'Lady M',desc:'千层蛋糕名店，下午茶首选'}
+      ],
+      photos:['📸 Gold Ball金球艺术装置','📸 顶层户外花园拍维港','📸 Opera Theatre中庭旋转楼梯'],
+      tips:'LV K11旗舰店是全港最大之一。Art Mall步行2分钟。注意控制时间，17:00前离开赶H2巴士。',
+      transport_to_next:{mode:'🚶 步行',desc:'K11 → 尖沙咀天星码头(H2巴士站)',duration:'约10分钟'}
+    },
+    { id:'h2bus', name:'H2落日飞车·敞篷巴士', day:2, order:5, time:'17:30-18:30',
+      lat:22.2934, lng:114.1700, type:'activity',
+      tags:['🚌 必体验','🌅 落日'], tagClasses:['transport','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTmvOJbcui_tIZr6T3O7VK38kpc5Y3nzPsJkQ&s',
+      address:'尖沙咀天星码头巴士站',
+      desc:'香港必体验！H2敞篷双层巴士从尖沙咀出发，途经红磡、铜锣湾、金钟、中环等地标，在敞篷上层看维港落日绝美。终点香港文化中心下车。',
+      foods:[],
+      photos:['📸 敞篷上层拍维港全景','📸 途经铜锣湾霓虹灯海','📸 落日时分金色维港'],
+      tips:'H2运营 12:30-19:30，每小时一班。建议搭17:30那班看落日。票价约HK$20，八达通或投币。坐上层前排最佳。',
+      transport_to_next:{mode:'🚶 步行',desc:'香港文化中心下车 → 中环天星码头',duration:'约5分钟'}
+    },
+    { id:'starferry', name:'天星小轮·维港渡海', day:2, order:6, time:'18:45-19:10',
+      lat:22.2867, lng:114.1586, type:'activity',
+      tags:['⛴️ 必体验','🌃 夜景'], tagClasses:['transport','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSO763Hg9F8X3xSN7QBPwaXCcj5wQRNJcHnRQ&s',
+      address:'中环天星码头',
+      desc:'从中环坐天星小轮回尖沙咀，横渡维港仅需8分钟。傍晚海风习习，维港两岸灯光渐亮，绝佳体验。',
+      foods:[],
+      photos:['📸 船上拍中环天际线','📸 维港夕阳余晖'],
+      tips:'票价仅HK$5.6，百年历史经典渡轮。建议坐下层开放式座位，拍照更方便。',
+      transport_to_next:{mode:'🚶 步行',desc:'尖沙咀码头 → 星光大道',duration:'约3分钟'}
+    },
+    { id:'victoriaharbour', name:'维多利亚港夜景', day:2, order:7, time:'19:15-20:30',
+      lat:22.2935, lng:114.1748, type:'landmark',
+      tags:['🌃 夜景','⭐ 地标'], tagClasses:['photo',''],
+      image:'https://live.staticflickr.com/3188/2917739292_00c6d895f4_b.jpg',
+      address:'尖沙咀星光大道',
+      desc:'沿尖沙咀海滨漫步，星光大道看维港灯光秀。每晚8:00"幻彩咏香江"灯光音乐汇演不容错过。',
+      foods:[
+        {emoji:'🍜',name:'一兰拉面（尖沙咀）',desc:'宵夜好选择，24小时营业'},
+        {emoji:'🍲',name:'翠华餐厅',desc:'港式茶餐厅经典，鱼蛋粉必试'}
+      ],
+      photos:['📸 星光大道拍中环天际线','📸 幻彩咏香江灯光秀','📸 李小龙铜像打卡'],
+      tips:'20:00幻彩咏香江灯光秀是重头戏，提前找好位置。沿海滨长廊散步回酒店。',
+      transport_to_next:{mode:'🚶 步行',desc:'星光大道 → 九龙香格里拉',duration:'约10分钟'}
+    },
+    { id:'return_hotel2', noMarker:true, name:'返回九龙香格里拉', day:2, order:8, time:'21:00',
+      lat:22.3048, lng:114.1615, type:'hotel',
+      tags:['🏨 回酒店'], tagClasses:[''],
+      image:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+      address:'尖沙咀柯士甸道西64号',
+      desc:'沿海滨长廊散步回酒店，沿途继续欣赏维港夜景。',
+      foods:[{emoji:'🍺',name:'尖沙咀宵夜',desc:'酒店附近诸多深夜食堂'}],
+      photos:[],
+      tips:'沿海滨长廊走回酒店约10分钟，一路夜景相伴。'
+    },
+
+    
+    // ========== DAY 3 ==========
+    { id:'tst_morning', name:'尖沙咀晨间漫步', day:3, order:1, time:'08:00-09:30',
+      lat:22.2980, lng:114.1726, type:'landmark',
+      tags:['☀️ 清晨','🍜 早茶'], tagClasses:['','food'],
+      image:'https://images.unsplash.com/photo-1517144447511-aebb25bbc5fa?w=800&q=80',
+      address:'尖沙咀弥敦道一带',
+      desc:'最后一个香港清晨，趁人少漫步弥敦道。清晨的尖沙咀有独特宁静感，与夜晚喧嚣截然不同。',
+      foods:[
+        {emoji:'🥛',name:'澳洲牛奶公司',desc:'早餐必打卡，炒蛋多士+炖奶'},
+        {emoji:'🍳',name:'祥兴记上海生煎包',desc:'底焦脆汤汁满，尖沙咀人气早点'}
+      ],
+      photos:['📸 清晨弥敦道空旷街道','📸 重庆大厦外观'],
+      tips:'建议8点出门避开人流。10点前退房，行李寄存酒店或直接带去码头。',
+      transport_to_next:{mode:'🚕 的士/港铁',desc:'尖沙咀 → 上环港澳码头',duration:'约20分钟'}
+    },
+    { id:'macau_ferry', name:'港澳码头 → 澳门', day:3, order:2, time:'10:30-12:00',
+      lat:22.2895, lng:114.1526, type:'transport',
+      tags:['⛴️ 轮渡','🔜 赴澳门'], tagClasses:['transport',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToUA6VsNks_VRTmM-LomW6ygj7Sbfl1qfikg&s',
+      address:'上环信德中心港澳码头',
+      desc:'搭乘喷射飞航/金光飞航高速轮渡前往澳门，航程约1小时。信德中心内有免税店可最后扫货。建议提前30分钟到达办理登船。',
+      foods:[{emoji:'🛒',name:'信德中心免税店',desc:'最后购物机会'}],
+      photos:['📸 码头大厅复古标识','📸 船上回望港岛天际线'],
+      tips:'🎫 建议提前网上订好船票。10:30到达码头，11:00出发。约12:00抵达澳门氹仔码头或外港码头。记得带好港澳通行证！',
+      transport_to_next:{mode:'🚌 酒店接驳车',desc:'码头 → 励庭海景酒店',duration:'约15分钟'}
+    },
+    { id:'hotel3', name:'励庭海景酒店', day:3, order:3, time:'12:30 入住',
+      lat:22.191895, lng:113.555975, type:'hotel',
+      tags:['🏨 住宿'], tagClasses:[''],
+      image:'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&q=80',
+      address:'澳门半岛孙逸仙大马路渔人码头内',
+      desc:'Day3-4 澳门住宿。位于凼仔区域，靠近各大度假村，前往威尼斯人、巴黎人等都很方便。',
+      foods:[{emoji:'🍜',name:'附近有各种澳门小吃',desc:'酒店周边美食丰富'}],
+      photos:[],
+      tips:'从码头可搭免费酒店穿梭巴士或的士前往。入住后稍作休息（约30分钟），下午开始凼仔/路氹区域游览。',
+      transport_to_next:{mode:'🚌 酒店接驳/步行',desc:'酒店 → 官也街',duration:'约10分钟'}
+    },
+    { id:'guanyejie', name:'官也街', day:3, order:4, time:'13:30-15:00',
+      lat:22.153723, lng:113.556994, type:'landmark',
+      tags:['🍜 美食','🏮 老街'], tagClasses:['food',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR5KCURrI-ifRa4un9zdFxBsSYMotli3wf7KA&s',
+      address:'澳门凼仔官也街',
+      desc:'凼仔最有名的美食一条街！短短百米汇聚各种传统小吃和伴手礼。边吃边逛，预留1.5小时，午餐也在这里解决。',
+      foods:[
+        {emoji:'🥧',name:'安德鲁蛋挞',desc:'葡式蛋挞鼻祖，外酥内滑'},
+        {emoji:'🍦',name:'莫义记',desc:'榴莲雪糕和大菜糕，排队也要吃'},
+        {emoji:'🥪',name:'大利来记猪扒包',desc:'猪扒香脆多汁，面包松软'},
+        {emoji:'🍪',name:'钜记饼家',desc:'澳门伴手礼首选，杏仁饼肉干'}
+      ],
+      photos:['📸 官也街入口牌坊','📸 两旁彩色葡式建筑','📸 各种小吃特写'],
+      tips:'官也街不长，但排队需要时间。建议先吃午餐再买伴手礼（东西重，最后买）。',
+      transport_to_next:{mode:'🚶 步行',desc:'官也街 → 龙环葡韵',duration:'约5分钟'}
+    },
+    { id:'longwan', name:'龙环葡韵', day:3, order:5, time:'15:00-15:45',
+      lat:22.153972, lng:113.559451, type:'landmark',
+      tags:['📸 打卡','🏛️ 文艺'], tagClasses:['photo',''],
+      image:'https://www.cflac.org.cn/zt/2009-12/08/xin_561206081632093433421.jpg',
+      address:'澳门凼仔海边马路',
+      desc:'五幢薄荷绿的葡萄牙式别墅，是澳门八景之一。保留了中葡融合历史的精致建筑群，超适合拍照！旁边还有嘉模教堂。',
+      foods:[],
+      photos:['📸 薄荷绿葡式别墅正面','📸 嘉模斜巷阶梯取景','📸 与荷花池合影'],
+      tips:'免费参观，10:00-19:00开放（周一休）。是凼仔最文艺的打卡点，拍照光线下午最好。约45分钟足够。',
+      transport_to_next:{mode:'🚶 步行/自动步道',desc:'龙环葡韵 → 威尼斯人',duration:'约15分钟'}
+    },
+    { id:'venetian', name:'威尼斯人度假村', day:3, order:6, time:'16:00-17:15',
+      lat:22.147423, lng:113.559794, type:'landmark',
+      tags:['🎰 度假村','🛶 体验'], tagClasses:['','transport'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTW5h0iZvSnTEWQ5xMBd5OjBOtqTw4BRCWONA&s',
+      address:'路氹金光大道',
+      desc:'亚洲最大度假村之一！室内仿威尼斯大运河购物中心，穹顶彩绘蓝天白云，还可以坐贡多拉船。预留1小时+参观。',
+      foods:[
+        {emoji:'🍝',name:'大运河美食广场',desc:'威尼斯人3楼，各国料理'},
+        {emoji:'🥘',name:'金沙阁中餐',desc:'粤菜为主，性价比不错'}
+      ],
+      photos:['📸 大运河穹顶蓝天+贡多拉','📸 金碧辉煌大堂','📸 户外金色建筑全景'],
+      tips:'贡多拉船票约MOP$128/人（约15分钟）。威尼斯人、巴黎人、伦敦人三家酒店有空桥相连，可以一路逛过去。',
+      transport_to_next:{mode:'🚶 空桥连通',desc:'威尼斯人 → 巴黎人',duration:'约5分钟'}
+    },
+    { id:'parisian', name:'巴黎人 · 巴黎铁塔', day:3, order:7, time:'17:15-18:15',
+      lat:22.144045, lng:113.561940, type:'landmark',
+      tags:['🗼 地标','📸 打卡'], tagClasses:['','photo'],
+      image:'https://assets.sandsresortsmacao.cn/content/meetings/venues/parisian/le-jardin/pm_le-jardin_banner_1920x1010.jpg',
+      address:'路氹金光大道',
+      desc:'澳门版"小巴黎"！1:2复刻的巴黎铁塔高达38层，可登7楼和37楼观景台俯瞰整个路氹城。傍晚铁塔亮灯后更加浪漫。',
+      foods:[{emoji:'🍰',name:'Le Buffet 巴黎人自助餐',desc:'法式主题自助晚餐，海鲜丰富'}],
+      photos:['📸 铁塔前广场仰拍','📸 37楼观景台俯瞰路氹夜景','📸 铁塔亮灯瞬间（约18:15）'],
+      tips:'🗼 铁塔观景台门票约MOP$60，建议傍晚时分登塔，可同时看日落和亮灯。每15分钟有灯光表演（18:15起）。',
+      transport_to_next:{mode:'🚶 步行',desc:'巴黎人 → 伦敦人',duration:'约5分钟'}
+    },
+    { id:'londoner', name:'伦敦人 · 夜景漫步', day:3, order:8, time:'18:15-19:00',
+      lat:22.144323, lng:113.565502, type:'landmark',
+      tags:['🎭 体验','🌃 夜景'], tagClasses:['','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRL0YEOsbYk-aXmNJJ6l-MYG2Wjoc6C8MkPAw&s',
+      address:'路氹金光大道',
+      desc:'以伦敦为主题的综合度假村，拥有96米高仿大本钟、水晶金殿、英式购物街区。卫兵换岗表演也是特色之一。',
+      foods:[{emoji:'🍔',name:'Gordon Ramsay Pub & Grill',desc:'米其林名厨戈登·拉姆齐的英式酒馆'}],
+      photos:['📸 大本钟夜景','📸 水晶金殿内部','📸 与英式卫兵合影'],
+      tips:'逛完三大度假村后，可以在路氹城的灯光中漫步拍照。各度假村有免费接驳车。',
+      transport_to_next:{mode:'🚶 步行',desc:'伦敦人 → 永利皇宫',duration:'约10分钟'}
+    },
+    { id:'cotai_dinner', name:'永利皇宫 · 晚餐', day:3, order:9, time:'19:15-21:00',
+      lat:22.148377, lng:113.571510, type:'landmark',
+      tags:['🍽️ 晚餐','🎰 度假村'], tagClasses:['food',''],
+      image:'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80',
+      address:'路氹城永利皇宫',
+      desc:'永利皇宫的免费缆车、音乐喷泉、发财树表演都不容错过。在这里享用晚餐后欣赏水上灯光秀，为一天画上完美句号。',
+      foods:[
+        {emoji:'🦀',name:'永利宫中餐',desc:'精致粤菜，环境一流'},
+        {emoji:'🍜',name:'路氹各餐厅',desc:'附近美食选择丰富'}
+      ],
+      photos:['📸 音乐喷泉表演','📸 缆车上拍全景','📸 发财树水晶吊灯'],
+      tips:'永利皇宫缆车免费乘坐，约每15分钟一班。音乐喷泉每20分钟一场（16:00-22:00），不要错过！晚餐预留1.5小时。',
+      transport_to_next:{mode:'🚌 免费穿梭巴士',desc:'永利皇宫 → 酒店',duration:'约15分钟'}
+    },
+    { id:'return_hotel3', noMarker:true, name:'返回励庭海景酒店', day:3, order:10, time:'21:15',
+      lat:22.1561, lng:113.5594, type:'hotel',
+      tags:['🏨 回酒店'], tagClasses:[''],
+      image:'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800&q=80',
+      address:'澳门半岛孙逸仙大马路渔人码头内',
+      desc:'晚餐后搭乘永利皇宫免费穿梭巴士或的士返回酒店休息，准备明天的澳门半岛City Walk。',
+      foods:[{emoji:'🍺',name:'酒店附近便利店',desc:'买些饮品回房间休息'}],
+      photos:[],
+      tips:'可以搭各大酒店之间的免费穿梭巴士到达凼仔区域，再步行/的士回酒店。路氹区域晚间打车也很方便。'
+    },
+
+    // ========== DAY 4 · 澳门半岛深度游 ==========
+    // ========== DAY 4 · 澳门半岛深度游 ==========
+    { id:'hotel4_start', name:'励庭海景酒店', day:4, order:1, time:'09:00 出发',
+      lat:22.190654, lng:113.556007, type:'hotel',
+      tags:['🏨 住宿'], tagClasses:[''],
+      image:'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&q=80',
+      address:'澳门半岛孙逸仙大马路渔人码头内',
+      desc:'Day4从励庭海景酒店出发，打车或巴士前往澳门半岛，开启世遗老城深度游。建议轻装出发，行李寄存前台。',
+      foods:[{emoji:'🥐',name:'酒店早餐',desc:'吃饱出发，上午步行量大'}],
+      photos:[],
+      tips:'建议出门前把行李整理好寄存前台，下午回来直接取走。酒店到新葡京约15分钟车程。',
+      transport_to_next:{mode:'🚕 的士/🚌 巴士',desc:'励庭海景酒店 → 新葡京',duration:'约15分钟'}
+    },
+    { id:'xinpujing', name:'新葡京', day:4, order:2, time:'09:20-09:50',
+      lat:22.190892, lng:113.543122, type:'landmark',
+      tags:['🏛️ 地标','📸 打卡'], tagClasses:['','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0m7VlqVJgkPZr7CvZrQk4oEklHxIkr-VXBQ&s',
+      address:'澳门半岛葡京路',
+      desc:'澳门最具标志性的建筑之一，莲花瓣造型的外观极具辨识度。大厅内展示着何鸿燊收藏的圆明园马首铜像等珍贵文物，免费参观。',
+      foods:[],
+      photos:['📸 新葡京莲花造型外观','📸 大厅圆明园马首铜像','📸 与老葡京同框对比'],
+      tips:'大堂免费参观，可快速打卡拍照+看马首铜像。从这里步行5分钟到议事亭前地。',
+      transport_to_next:{mode:'🚶 步行',desc:'新葡京 → 议事亭前地',duration:'约5分钟'}
+    },
+    { id:'peninsula_start', name:'议事亭前地', day:4, order:3, time:'09:55-10:20',
+      lat:22.193763, lng:113.539839, type:'landmark',
+      tags:['🏛️ 世遗','📸 打卡'], tagClasses:['','photo'],
+      image:'https://images.unsplash.com/photo-1474181628669-e4be4d898ada?w=800&q=80',
+      address:'澳门半岛议事亭前地',
+      desc:'澳门世界遗产核心区起点！波浪形黑白碎石路面、两旁欧式彩色建筑群，有民政总署大楼、仁慈堂等历史建筑。早上到达人少出片。',
+      foods:[
+        {emoji:'🍮',name:'义顺牛奶公司',desc:'双皮奶经典老字号，滑嫩香浓'},
+        {emoji:'☕',name:'玛嘉烈蛋挞',desc:'步行5分钟，与安德鲁齐名的蛋挞'}
+      ],
+      photos:['📸 广场中央喷泉+两旁彩色建筑','📸 波浪形碎石路面俯拍','📸 仁慈堂白色外墙'],
+      tips:'早上10点前到人少好拍照。从新葡京步行5分钟即到。',
+      transport_to_next:{mode:'🚶 步行',desc:'议事亭 → 玫瑰圣母堂',duration:'约2分钟'}
+    },
+    { id:'rosechurch', name:'玫瑰圣母堂', day:4, order:4, time:'10:20-10:40',
+      lat:22.194826, lng:113.540332, type:'landmark',
+      tags:['⛪ 教堂','🏛️ 世遗'], tagClasses:['',''],
+      image:'https://rosarychurch.catholic.org.hk/zh/wp-content/uploads/sites/2/2025/06/Rosary-Church-700x300.jpg',
+      address:'澳门板樟堂前地',
+      desc:'1587年由西班牙修士创建的巴洛克式教堂，鹅黄色外墙配绿色百叶窗是澳门标志性画面。内部有珍贵的宗教艺术品展览。约20分钟参观。',
+      foods:[],
+      photos:['📸 鹅黄色教堂正面全景','📸 内部巴洛克装饰','📸 教堂前广场回望'],
+      tips:'免费参观，08:00-18:00。从议事亭沿路直走2分钟即到。',
+      transport_to_next:{mode:'🚶 步行',desc:'玫瑰堂 → 大三巴',duration:'约5分钟'}
+    },
+    { id:'sanba', name:'大三巴牌坊', day:4, order:5, time:'10:45-11:20',
+      lat:22.197538, lng:113.540863, type:'landmark',
+      tags:['⭐ 必打卡','🏛️ 世遗'], tagClasses:['',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVYpg96diORDxKdSwtjZRomKj405UgHAjR_w&s',
+      address:'澳门大三巴斜港',
+      desc:'澳门最iconic的地标！圣保禄大教堂前壁遗址，融合东西方建筑风格。牌坊上精美石刻浮雕讲述圣经故事。预留约35分钟充分拍照+走到背面参观。',
+      foods:[
+        {emoji:'🍪',name:'沿途手信街',desc:'两旁是钜记、最香饼家等，免费试吃'},
+        {emoji:'🥤',name:'恋爱巷附近小店',desc:'各种网红饮品和小吃'}
+      ],
+      photos:['📸 正面仰拍牌坊全景','📸 侧面拍出立体层次感','📸 早上10点前人少出片'],
+      tips:'澳门NO.1打卡点，尽量10点前到人少。牌坊背面也可以走上去参观，视角独特。',
+      transport_to_next:{mode:'🚶 步行',desc:'大三巴 → 恋爱巷',duration:'约1分钟'}
+    },
+    { id:'lovelane', name:'恋爱巷', day:4, order:6, time:'11:20-11:40',
+      lat:22.1970, lng:113.5405, type:'photo',
+      tags:['💕 打卡','📸 出片'], tagClasses:['photo','photo'],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR855EQvWApw1Oj2ixGmzne36J3Arw17v0BkA&s',
+      address:'大三巴牌坊右侧',
+      desc:'大三巴旁的一条浪漫小巷，粉色和鹅黄色的欧式建筑两旁排列，是澳门最有名的拍照打卡地之一。短短50米却美得像电影场景。',
+      foods:[],
+      photos:['📸 巷道中央拍两旁彩色建筑','📸 从大三巴方向望入巷内','📸 与粉墙合影'],
+      tips:'非常短的巷子，拍照15-20分钟即可。清晨人少最好拍。',
+      transport_to_next:{mode:'🚶 步行',desc:'恋爱巷 → 大炮台',duration:'约5分钟'}
+    },
+    { id:'fortaleza', name:'大炮台 · 澳门博物馆', day:4, order:7, time:'11:45-12:20',
+      lat:22.196932, lng:113.542285, type:'landmark',
+      tags:['🏛️ 历史','📸 全景'], tagClasses:['','photo'],
+      image:'https://p0.itc.cn/q_70/images03/20210819/fa851294130c4d03b4cab49fcd9b9189.jpeg',
+      address:'大三巴牌坊旁山丘',
+      desc:'建于1617年的军事要塞，山顶可360°俯瞰澳门半岛全景和大三巴。现存十多门古炮。预留约35分钟。',
+      foods:[],
+      photos:['📸 古炮+城市天际线','📸 俯瞰大三巴牌坊角度','📸 澳门半岛全景'],
+      tips:'免费进入炮台。澳门博物馆门票MOP$15，10:00-18:00（周一休）。从大三巴旁的斜坡或电梯上去即可。',
+      transport_to_next:{mode:'🚶 步行',desc:'大炮台 → 疯堂斜巷',duration:'约10分钟'}
+    },
+    { id:'fengtan', name:'疯堂斜巷', day:4, order:8, time:'12:25-12:50',
+      lat:22.197130, lng:113.544817, type:'photo',
+      tags:['📸 文艺','🎨 街区'], tagClasses:['photo',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSOb-HypTwfOGXBeN3RPJToTRSxx90lZzAQBw&s',
+      address:'澳门望德堂区疯堂斜巷',
+      desc:'澳门最文艺的街区！彩色葡式建筑沿斜巷排列，街道两旁是各种文创店和咖啡馆。仁慈堂婆仔屋也在这里，约25分钟漫步。',
+      foods:[{emoji:'☕',name:'文创咖啡馆',desc:'斜巷内有多家特色咖啡店'}],
+      photos:['📸 斜巷彩色建筑拍整条街','📸 望德圣母堂','📸 婆仔屋院内'],
+      tips:'比较小众的打卡点，人少出片。适合悠闲漫步感受澳门的葡式风情。',
+      transport_to_next:{mode:'🚶 步行',desc:'疯堂斜巷 → 午餐',duration:'约5分钟'}
+    },
+    { id:'macau_lunch', name:'澳门午餐', day:4, order:9, time:'12:55-14:00',
+      lat:22.1945, lng:113.5450, type:'landmark',
+      tags:['🍜 美食','🍮 甜品'], tagClasses:['food','food'],
+      image:'https://images.unsplash.com/photo-1555217851-6141535bd771?w=800&q=80',
+      address:'疯堂斜巷/水坑尾一带',
+      desc:'在疯堂斜巷附近解决午餐，这一带有不少地道葡餐和本地小吃。也可步行到附近的水坑尾街觅食，预留约1小时。',
+      foods:[
+        {emoji:'🍜',name:'黄枝记粥面',desc:'百年老字号，虾子捞面必点'},
+        {emoji:'🦐',name:'赢到粥',desc:'水蟹粥鲜到爆，排队也值'},
+        {emoji:'🥩',name:'世记咖啡',desc:'老字号茶餐厅，猪扒包经典'},
+        {emoji:'🥧',name:'玛嘉烈蛋挞',desc:'与安德鲁齐名，酥皮蛋挞必吃'}
+      ],
+      photos:[],
+      tips:'疯堂附近美食不少，水坑尾街也值得一走。不用赶路，慢慢吃。',
+      transport_to_next:{mode:'🚶 步行',desc:'午餐 → 加思栏花园',duration:'约5分钟'}
+    },
+    { id:'jiasilan', name:'加思栏花园', day:4, order:10, time:'14:05-14:30',
+      lat:22.1917, lng:113.5467, type:'landmark',
+      tags:['🌿 公园','🏛️ 历史'], tagClasses:['',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJr5pEnIqA7VR0xGo24V3eDvYV3e4aEh2iLA&s',
+      address:'澳门东望洋斜巷加思栏花园',
+      desc:'澳门最古老的公园之一，建于1580年代。园内有葡式凉亭、喷泉和百年古树，是闹市中的一方清幽。毗邻加思栏炮台遗址，充满历史韵味。',
+      foods:[],
+      photos:['📸 葡式凉亭与古树','📸 花园内石阶小径','📸 加思栏炮台遗址'],
+      tips:'小巧精致的花园，20分钟即可逛完。是从疯堂斜巷走向东望洋方向的中途休憩点。',
+      transport_to_next:{mode:'🚶 步行',desc:'加思栏花园 → 东望洋新街',duration:'约5分钟'}
+    },
+    { id:'dongwangyang', name:'东望洋新街', day:4, order:11, time:'14:35-15:00',
+      lat:22.194, lng:113.5483, type:'photo',
+      tags:['📸 打卡','🏮 街巷'], tagClasses:['photo',''],
+      image:'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRBQGmJnWqLTJqg5TyQjUKJr_w8L6Yl5qlEVw&s',
+      address:'澳门东望洋新街',
+      desc:'隐藏在澳门老城区的一条特色街巷，两旁葡式彩色建筑保存完好，带有浓浓的南欧风情。比疯堂更加安静小众，适合慢慢拍照散步。',
+      foods:[],
+      photos:['📸 彩色葡式建筑街景','📸 斜坡街道纵深感','📸 街角特色门窗细节'],
+      tips:'非常小众的打卡点，游客极少。从这里步行回酒店方向很顺路。',
+      transport_to_next:{mode:'🚕 的士/🚌 巴士',desc:'东望洋新街 → 励庭海景酒店',duration:'约10分钟'}
+    },
+    { id:'return_hotel_luggage', noMarker:true, name:'返回酒店取行李', day:4, order:12, time:'15:10-15:30',
+      lat:22.1561, lng:113.5594, type:'hotel',
+      tags:['🏨 取行李','🧳 退房'], tagClasses:['',''],
+      image:'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&q=80',
+      address:'澳门半岛孙逸仙大马路渔人码头内',
+      desc:'返回酒店取回寄存行李，整理好所有物品后前往码头或口岸返程。',
+      foods:[],
+      photos:[],
+      tips:'早上出门前已整理好行李，直接取回即可。酒店到外港码头约15分钟。',
+      transport_to_next:{mode:'🚕 的士/🚌 巴士',desc:'酒店 → 码头/口岸',duration:'约15分钟'}
+    },
+    { id:'macau_end', name:'返程', day:4, order:13, time:'16:00',
+      lat:22.2039, lng:113.5578, type:'transport',
+      tags:['🔚 结束','⛴️ 返程'], tagClasses:['','transport'],
+      image:'https://images.unsplash.com/photo-1570005435342-7541f89273e8?w=800&q=80',
+      address:'外港码头/港珠澳大桥口岸',
+      desc:'结束四天港澳之旅！可选择：① 外港码头搭轮渡回香港（约1小时）；② 港珠澳大桥口岸陆路返回；③ 拱北口岸过关到珠海。',
+      foods:[],
+      photos:['📸 最后回望澳门天际线'],
+      tips:'如回香港：外港码头有喷射飞航频繁班次。如去珠海：直接从拱北口岸过关非常方便。祝旅途愉快！🎉'
+    },
+
+];
+
+// ===================== MAP =====================
+const map = L.map('map',{center:[22.20,113.85],zoom:11,zoomControl:false});
+L.control.zoom({position:'topleft'}).addTo(map);
+
+// Map tiles: clean base map approach
+// Use multiple tile sources with auto-fallback. The CSS filter on .leaflet-tile-pane
+// desaturates and lightens the base map, fading out POI labels while keeping roads visible.
+// Our custom markers and route lines sit above the filtered tiles.
+const tileConfigs = [
+        // Google 地图（WGS84坐标系，与标注点一致）
+        { url:'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=zh-CN', opts:{subdomains:'0123',maxZoom:20,attribution:'&copy; Google'} },
+        // OSM 备选（同样使用WGS84）
+        { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts:{maxZoom:19,attribution:'&copy; OpenStreetMap'} },
+        // 高德兜底（注意：高德使用GCJ02坐标系，标注会有偏移）
+        { url:'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', opts:{subdomains:'1234',maxZoom:18,attribution:'&copy; 高德地图'} }
+    ];
+let currentTileIdx = 0;
+let currentTile = null;
+function loadTileLayer(idx) {
+    if (idx >= tileConfigs.length) return;
+    if (currentTile) map.removeLayer(currentTile);
+    currentTileIdx = idx;
+    const cfg = tileConfigs[idx];
+    currentTile = L.tileLayer(cfg.url, cfg.opts).addTo(map);
+    let errCount = 0;
+    currentTile.on('tileerror', function() {
+        errCount++;
+        if (errCount >= 2) { loadTileLayer(idx + 1); }
+    });
+}
+loadTileLayer(0);
+
+let markers=[], routeLines=[];
+function getDayClass(d){return d===1?'day1':d===2?'day2':d===3?'day3':'day4'}
+function getDayColor(d){return d===1?'#2D8C4E':d===2?'#2563EB':d===3?'#E06C2D':'#9333EA'}
+
+function createMarker(spot){
+    if(spot.noMarker)return;
+    const dc=spot.type==='hotel'?'hotel':getDayClass(spot.day);
+    const markerIcon=L.divIcon({
+        className:'custom-marker',
+        html:`<div class="marker-pin ${dc}"><span class="marker-number">${spot.type==='hotel'?'♥':spot.order}</span></div><div class="marker-label">${spot.name.length>8?spot.name.substring(0,8)+'…':spot.name}</div>`,
+        iconSize:[30,30],iconAnchor:[15,30]
+    });
+    const m=L.marker([spot.lat,spot.lng],{icon:markerIcon}).addTo(map).on('click',()=>openDetail(spot.id));
+    m.spotId=spot.id;m.spotDay=spot.day;markers.push(m);
+}
+
+function drawRouteLines(days){
+    routeLines.forEach(l=>map.removeLayer(l));routeLines=[];
+    days.forEach(day=>{
+        const ds=spots.filter(s=>s.day===day&&!s.noMarker).sort((a,b)=>a.order-b.order);
+        if(ds.length<2)return;
+        const line=L.polyline(ds.map(s=>[s.lat,s.lng]),{color:getDayColor(day),weight:3.5,opacity:.7,dashArray:'10,8',smoothFactor:1.5}).addTo(map);
+        routeLines.push(line);
+    });
+}
+
+
+// ===================== LOCAL STORAGE + CROSS-DEVICE SYNC =====================
+const STORAGE_KEY = 'hk_trip_custom_data';
+const URL_PARAM_KEY = 'sync';
+
+// ---- Core storage functions ----
+function getStoredData(){
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : { coordOverrides:{}, customSpots:[] };
+    } catch(e){ return { coordOverrides:{}, customSpots:[] }; }
+}
+
+function setStoredData(data){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
+}
+
+function loadCustomData(){
+    // Priority: URL params > localStorage
+    let data = null;
+    
+    // Check URL for sync data
+    const urlData = loadFromUrl();
+    if(urlData){
+        data = urlData;
+        // Save URL data to localStorage for future refreshes
+        setStoredData(data);
+        // Clean URL without reload
+        const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+        window.history.replaceState(null, '', cleanUrl);
+        showSyncToast('✓ 已从同步链接加载修改');
+    } else {
+        data = getStoredData();
+    }
+    
+    if(!data) return;
+    
+    // Apply coordinate overrides
+    if(data.coordOverrides){
+        Object.entries(data.coordOverrides).forEach(([id, coords])=>{
+            const spot = spots.find(s=>s.id===id);
+            if(spot){ spot.lat=coords.lat; spot.lng=coords.lng; }
+        });
+    }
+    
+    // Add custom spots
+    if(data.customSpots && data.customSpots.length){
+        data.customSpots.forEach(cs=>{
+            if(!spots.find(s=>s.id===cs.id)){
+                spots.push(cs);
+            }
+        });
+    }
+    
+    const overrideCount = Object.keys(data.coordOverrides||{}).length;
+    const customCount = (data.customSpots||[]).length;
+    if(overrideCount || customCount){
+        console.log('[Sync] Loaded:', overrideCount, 'coord overrides,', customCount, 'custom spots');
+    }
+    
+    // Update badge
+    updateSyncBadge();
+}
+
+function saveCoordOverride(spotId, lat, lng){
+    const data = getStoredData();
+    data.coordOverrides[spotId] = { lat, lng };
+    setStoredData(data);
+    updateSyncBadge();
+}
+
+function saveCustomSpot(spot){
+    const data = getStoredData();
+    data.customSpots = data.customSpots.filter(s=>s.id!==spot.id);
+    // Clone to avoid circular refs
+    const clean = JSON.parse(JSON.stringify(spot));
+    data.customSpots.push(clean);
+    setStoredData(data);
+    updateSyncBadge();
+}
+
+function resetAllCustomData(){
+    if(!confirm('确定要重置所有修改吗？\n将还原所有手动调整的坐标，并删除所有新增的打卡点。')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+}
+
+// ---- Sync badge ----
+function updateSyncBadge(){
+    const data = getStoredData();
+    const count = Object.keys(data.coordOverrides||{}).length + (data.customSpots||[]).length;
+    const badge = document.getElementById('syncBadge');
+    const status = document.getElementById('syncStatus');
+    if(badge){
+        if(count > 0){ badge.style.display='flex'; badge.textContent=count; }
+        else { badge.style.display='none'; }
+    }
+    if(status){
+        if(count > 0){
+            status.classList.add('has-data');
+            const parts = [];
+            const oc = Object.keys(data.coordOverrides||{}).length;
+            const sc = (data.customSpots||[]).length;
+            if(oc) parts.push(oc+'项坐标调整');
+            if(sc) parts.push(sc+'个新增点');
+            status.textContent = '已保存: '+parts.join(', ');
+        } else {
+            status.classList.remove('has-data');
+        }
+    }
+}
+
+// ---- Toast notification ----
+function showSyncToast(msg, duration){
+    const el = document.getElementById('syncToast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(()=>el.classList.remove('show'), duration||2500);
+}
+
+// ---- Sync menu toggle ----
+function toggleSyncMenu(){
+    const menu = document.getElementById('syncMenu');
+    if(!menu) return;
+    menu.classList.toggle('show');
+    // Close on outside click
+    if(menu.classList.contains('show')){
+        setTimeout(()=>{
+            const handler = (e)=>{
+                if(!menu.contains(e.target) && e.target.id!=='syncFab'){
+                    menu.classList.remove('show');
+                    document.removeEventListener('click', handler);
+                }
+            };
+            document.addEventListener('click', handler);
+        }, 10);
+    }
+}
+
+// ---- URL Sync (encode data into URL hash) ----
+function compressData(data){
+    // Use base64 encoding of JSON for URL-safe transport
+    const json = JSON.stringify(data);
+    try {
+        // Try using compression via btoa
+        return btoa(unescape(encodeURIComponent(json)));
+    } catch(e){
+        return btoa(json);
+    }
+}
+
+function decompressData(str){
+    try {
+        const json = decodeURIComponent(escape(atob(str)));
+        return JSON.parse(json);
+    } catch(e){
+        try { return JSON.parse(atob(str)); }
+        catch(e2){ return null; }
+    }
+}
+
+function loadFromUrl(){
+    const params = new URLSearchParams(window.location.search);
+    const syncParam = params.get(URL_PARAM_KEY);
+    if(!syncParam) return null;
+    return decompressData(syncParam);
+}
+
+function generateSyncUrl(){
+    const data = getStoredData();
+    const count = Object.keys(data.coordOverrides||{}).length + (data.customSpots||[]).length;
+    if(count === 0){
+        showSyncToast('暂无修改需要同步');
+        return;
+    }
+    
+    const encoded = compressData(data);
+    const base = window.location.href.split('?')[0].split('#')[0];
+    const syncUrl = base + '?' + URL_PARAM_KEY + '=' + encodeURIComponent(encoded);
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(syncUrl).then(()=>{
+        showSyncToast('✓ 同步链接已复制到剪贴板');
+    }).catch(()=>{
+        // Fallback: show in prompt
+        prompt('复制此链接到其他设备打开：', syncUrl);
+    });
+    
+    document.getElementById('syncMenu').classList.remove('show');
+}
+
+// ---- File Export/Import ----
+function exportConfig(){
+    const data = getStoredData();
+    const count = Object.keys(data.coordOverrides||{}).length + (data.customSpots||[]).length;
+    if(count === 0){
+        showSyncToast('暂无修改需要导出');
+        return;
+    }
+    
+    const exportData = {
+        _version: '1.0',
+        _exportTime: new Date().toISOString(),
+        _description: '港澳旅行地图 - 自定义配置',
+        ...data
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'hk_trip_config_' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showSyncToast('✓ 配置已导出');
+    document.getElementById('syncMenu').classList.remove('show');
+}
+
+function importConfig(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e){
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Validate structure
+            if(!data.coordOverrides && !data.customSpots){
+                showSyncToast('⚠ 无效的配置文件');
+                return;
+            }
+            
+            const existing = getStoredData();
+            
+            // Merge: imported data overwrites existing
+            if(data.coordOverrides){
+                Object.assign(existing.coordOverrides, data.coordOverrides);
+            }
+            if(data.customSpots){
+                data.customSpots.forEach(cs=>{
+                    existing.customSpots = existing.customSpots.filter(s=>s.id!==cs.id);
+                    existing.customSpots.push(cs);
+                });
+            }
+            
+            setStoredData(existing);
+            
+            const oc = Object.keys(data.coordOverrides||{}).length;
+            const sc = (data.customSpots||[]).length;
+            showSyncToast('✓ 已导入 '+oc+' 项坐标 + '+sc+' 个打卡点，刷新生效', 3000);
+            
+            setTimeout(()=>location.reload(), 1500);
+        } catch(err){
+            showSyncToast('⚠ 文件解析失败: '+err.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset for re-upload
+    document.getElementById('syncMenu').classList.remove('show');
+}
+
+// Load saved data before creating markers
+loadCustomData();
+
+
+spots.forEach(createMarker);
+drawRouteLines([1,2,3,4]);
+
+// ===================== SIDEBAR =====================
+const daysMeta=[
+    {num:1,title:'Day 1 · 港岛初见',sub:'5/2 百德新街→太平山顶',color:'var(--day1)'},
+    {num:2,title:'Day 2 · 九龙漫步',sub:'5/3 旺角→油麻地→K11 Musea→H2落日巴士→天星小轮→维港夜景',color:'var(--day2)'},
+    {num:3,title:'Day 3 · 赴澳门·凼仔',sub:'5/4 轮渡赴澳门→官也街→龙环葡韵→威尼斯人→巴黎人',color:'var(--day3)'},
+    {num:4,title:'Day 4 · 澳门半岛',sub:'5/5 新葡京→议事亭→大三巴→恋爱巷→大炮台→疯堂斜巷→加思栏→东望洋→返程',color:'var(--day4)'}
+];
+
+function renderSidebar(fd){
+    const sb=document.getElementById('sidebar');let html='';
+    const filtered=fd==='all'?daysMeta:daysMeta.filter(d=>d.num===fd);
+    filtered.forEach(day=>{
+        const ds=spots.filter(s=>s.day===day.num).sort((a,b)=>a.order-b.order);
+        html+=`<div class="day-section"><div class="day-header"><div class="day-dot" style="background:${day.color}"></div><div class="day-header-text"><h3>${day.title}</h3><p>${day.sub}</p></div></div><div class="timeline">`;
+        ds.forEach((spot,idx)=>{
+            const dc=getDayClass(day.num);
+            html+=`<div class="timeline-item ${dc}" data-spot-id="${spot.id}" onclick="openDetail('${spot.id}')"><div class="timeline-dot"></div><div class="spot-card"><div class="spot-card-top"><span class="spot-name">${spot.name}</span><span class="spot-time">${spot.time}</span></div>`;
+            if(spot.tags.length)html+=`<div class="spot-tags">${spot.tags.map((t,i)=>`<span class="spot-tag ${spot.tagClasses[i]||''}">${t}</span>`).join('')}</div>`;
+            html+=`</div></div>`;
+            if(spot.transport_to_next&&idx<ds.length-1)html+=`<div class="transport-connector"><span>${spot.transport_to_next.mode.split(' ')[0]}</span><span>${spot.transport_to_next.desc}</span><span class="transport-line"></span><span class="transport-duration">${spot.transport_to_next.duration}</span></div>`;
+        });
+        html+=`</div></div>`;
+    });
+    sb.innerHTML=html;
+}
+renderSidebar('all');
+
+// ===================== FILTER =====================
+let currentFilter='all';
+function filterDay(day){
+    currentFilter=day;
+    document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector(`.day-tab[data-day="${day}"]`).classList.add('active');
+    renderSidebar(day);
+    markers.forEach(m=>{m.setOpacity(day==='all'?1:m.spotDay===day?1:.1)});
+    drawRouteLines(day==='all'?[1,2,3,4]:[day]);
+    const fs=day==='all'?spots.filter(s=>!s.noMarker):spots.filter(s=>s.day===day&&!s.noMarker);
+    if(fs.length){const b=L.latLngBounds(fs.map(s=>[s.lat,s.lng]));map.fitBounds(b.pad(.2));}
+}
+
+// ===================== DETAIL PANEL (RIGHT SIDE) =====================
+function getNextSpot(currentId){
+    const cur=spots.find(s=>s.id===currentId);if(!cur)return null;
+    const daySpots=spots.filter(s=>s.day===cur.day).sort((a,b)=>a.order-b.order);
+    const idx=daySpots.findIndex(s=>s.id===currentId);
+    if(idx<daySpots.length-1)return daySpots[idx+1];
+    const nextDay=spots.filter(s=>s.day===cur.day+1).sort((a,b)=>a.order-b.order);
+    return nextDay.length?nextDay[0]:null;
+}
+function getPrevSpot(currentId){
+    const cur=spots.find(s=>s.id===currentId);if(!cur)return null;
+    const daySpots=spots.filter(s=>s.day===cur.day).sort((a,b)=>a.order-b.order);
+    const idx=daySpots.findIndex(s=>s.id===currentId);
+    if(idx>0)return daySpots[idx-1];
+    const prevDay=spots.filter(s=>s.day===cur.day-1).sort((a,b)=>a.order-b.order);
+    return prevDay.length?prevDay[prevDay.length-1]:null;
+}
+function getSpotIndex(spotId){
+    const s=spots.find(x=>x.id===spotId);if(!s)return{cur:0,total:0};
+    const daySpots=spots.filter(x=>x.day===s.day).sort((a,b)=>a.order-b.order);
+    return{cur:daySpots.findIndex(x=>x.id===spotId)+1,total:daySpots.length,day:s.day};
+}
+
+function openDetail(spotId){
+    const spot=spots.find(s=>s.id===spotId);if(!spot)return;
+    document.querySelectorAll('.timeline-item').forEach(el=>el.classList.remove('active'));
+    const si=document.querySelector(`.timeline-item[data-spot-id="${spotId}"]`);
+    if(si){si.classList.add('active');si.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+    // Auto-switch day filter if needed
+    if(currentFilter!=='all' && spot.day!==currentFilter){
+        filterDay(spot.day);
+    }
+
+    // Highlight selected marker
+    highlightMarker(spotId, spot.day, spot.type);
+
+    // Pan map to spot
+    const point=map.latLngToContainerPoint([spot.lat,spot.lng]);
+    const panelWidth=380;
+    const offsetPoint=L.point(point.x-panelWidth/2, point.y);
+    const offsetLatLng=map.containerPointToLatLng(offsetPoint);
+    map.flyTo([spot.lat, offsetLatLng.lng<spot.lng?spot.lng:offsetLatLng.lng], spot.day>=3?15:14,{duration:.5});
+
+    const dc=getDayColor(spot.day);
+    const next=getNextSpot(spotId);
+    const prev=getPrevSpot(spotId);
+    const idx=getSpotIndex(spotId);
+
+    // Wire edit button in top bar
+    const editBtn=document.getElementById('detailEditBtn');
+    if(editBtn){
+        if(spot.noMarker){editBtn.style.display='none';}
+        else{editBtn.style.display='flex';editBtn.onclick=function(){startEditPosition(spot.id);};}
+    }
+
+    // Top nav bar
+    let navHtml=`<button class="detail-nav-btn" ${prev?`onclick="openDetail('${prev.id}')"`:'disabled'}><span class="arrow">←</span> 上一站</button>`;
+    navHtml+=`<span class="detail-nav-counter">Day${idx.day} · ${idx.cur}/${idx.total}</span>`;
+    navHtml+=`<button class="detail-nav-btn" ${next?`onclick="openDetail('${next.id}')"`:'disabled'}>下一站 <span class="arrow">→</span></button>`;
+    document.getElementById('detailNavTop').innerHTML=navHtml;
+
+    // Image (no edit button inside image anymore)
+    let imageHtml='';
+    if(spot.image){
+        imageHtml=`<div class="detail-image"><img src="${spot.image}" alt="${spot.name}" onerror="this.parentElement.innerHTML='<div class=detail-image-placeholder>${getEmoji(spot.type)}</div>'"><div class="detail-day-badge" style="background:${dc}">Day ${spot.day}</div></div>`;
+    } else {
+        imageHtml=`<div class="detail-image"><div class="detail-image-placeholder" style="background:linear-gradient(135deg,${dc}22,${dc}44);color:${dc};font-size:24px;font-weight:700;letter-spacing:2px">${spot.name.substring(0,4)}</div><div class="detail-day-badge" style="background:${dc}">Day ${spot.day}</div></div>`;
+    }
+
+    let html=imageHtml+`
+        <div class="detail-header"><div class="detail-title">${spot.name}</div>
+        <div class="detail-meta"><span class="detail-badge" style="background:${dc}15;color:${dc};border:1px solid ${dc}30">Day ${spot.day}</span><span class="detail-badge">${spot.time}</span>${spot.tags.map(t=>`<span class="detail-badge">${t}</span>`).join('')}</div></div>
+        <div class="detail-body">
+        <div class="detail-section"><div class="detail-section-title">📍 位置</div><div class="detail-section-content">${spot.address}</div></div>
+        <div class="detail-section"><div class="detail-section-title">📝 简介</div><div class="detail-section-content">${spot.desc}</div></div>`;
+
+    if(spot.foods&&spot.foods.length){
+        html+=`<div class="detail-section"><div class="detail-section-title">🍽️ 推荐美食</div><div class="detail-section-content">`;
+        spot.foods.forEach(f=>html+=`<div class="detail-food-item"><span class="detail-food-emoji">${f.emoji}</span><div><div class="detail-food-name">${f.name}</div><div class="detail-food-desc">${f.desc}</div></div></div>`);
+        html+=`</div></div>`;
+    }
+    if(spot.photos&&spot.photos.length){
+        html+=`<div class="detail-section"><div class="detail-section-title">📸 推荐机位</div><div class="detail-section-content">${spot.photos.map(p=>`<div class="photo-spot-item">${p}</div>`).join('')}</div></div>`;
+    }
+    if(spot.tips)html+=`<div class="detail-section"><div class="detail-section-title">💡 小贴士</div><div class="detail-tip">${spot.tips}</div></div>`;
+    if(spot.transport_to_next)html+=`<div class="detail-section"><div class="detail-section-title">🚌 前往下一站</div><div class="detail-tip"><strong>${spot.transport_to_next.mode}</strong> ${spot.transport_to_next.desc}<br/>预计 ${spot.transport_to_next.duration}</div></div>`;
+    html+=`</div>`;
+
+    document.getElementById('detailContent').innerHTML=html;
+    document.getElementById('detailPanel').scrollTop=0;
+    document.getElementById('detailPanel').classList.add('open');
+}
+
+
+function getEmoji(type){
+    const emojis={'hotel':'🏨','landmark':'🏛️','activity':'🎡','shop':'🛍️','photo':'📸','transport':'⛴️'};
+    return emojis[type]||'📍';
+}
+
+let activeMarkerId=null;
+function highlightMarker(spotId, day, type){
+    // Remove previous highlight
+    clearMarkerHighlight();
+    activeMarkerId=spotId;
+    const marker=markers.find(m=>m.spotId===spotId);
+    if(!marker)return;
+    const el=marker.getElement();
+    if(!el)return;
+    el.classList.add('marker-active');
+    const pin=el.querySelector('.marker-pin');
+    const label=el.querySelector('.marker-label');
+    const dc=type==='hotel'?'hotel':getDayClass(day);
+    if(pin){pin.classList.add('selected');}
+    if(label){label.classList.add('marker-label-selected');}
+    // Add pulse ring
+    let pulse=el.querySelector('.marker-pulse');
+    if(!pulse){pulse=document.createElement('div');pulse.className='marker-pulse '+dc;el.appendChild(pulse);}
+}
+function clearMarkerHighlight(){
+    if(!activeMarkerId)return;
+    const marker=markers.find(m=>m.spotId===activeMarkerId);
+    if(marker){
+        const el=marker.getElement();
+        if(el){
+            el.classList.remove('marker-active');
+            const pin=el.querySelector('.marker-pin');
+            const label=el.querySelector('.marker-label');
+            if(pin)pin.classList.remove('selected');
+            if(label)label.classList.remove('marker-label-selected');
+            const pulse=el.querySelector('.marker-pulse');
+            if(pulse)pulse.remove();
+        }
+    }
+    activeMarkerId=null;
+}
+
+function closeDetail(){
+    document.getElementById('detailPanel').classList.remove('fullscreen');
+    document.getElementById('detailPanel').classList.remove('open');
+    document.querySelectorAll('.timeline-item').forEach(el=>el.classList.remove('active'));
+    clearMarkerHighlight();
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
+
+// Init view
+setTimeout(()=>{const b=L.latLngBounds(spots.map(s=>[s.lat,s.lng]));map.fitBounds(b.pad(.15));},300);
+
+
+// ===================== SIDEBAR TOGGLE =====================
+function toggleSidebar(){
+    const sb=document.getElementById('sidebar');
+    const tb=document.getElementById('sidebarToggle');
+    const eb=document.getElementById('sidebarExpand');
+    const isCollapsed=sb.classList.toggle('collapsed');
+    if(isCollapsed){
+        tb.style.display='none';
+        eb.classList.add('show');
+    } else {
+        tb.style.display='flex';
+        tb.classList.remove('collapsed');
+        eb.classList.remove('show');
+    }
+    setTimeout(()=>map.invalidateSize(),400);
+}
+
+// ===================== EDIT MARKER POSITION =====================
+let editingSpotId=null;
+let editingMarker=null;
+let editOriginalLatLng=null;
+
+function startEditPosition(spotId){
+    if(editingSpotId)cancelEditPosition();
+    editingSpotId=spotId;
+    const marker=markers.find(m=>m.spotId===spotId);
+    if(!marker)return;
+    editingMarker=marker;
+    editOriginalLatLng=marker.getLatLng();
+    marker.dragging.enable();
+    document.getElementById('editBar').classList.add('show');
+    closeDetail();
+    // Visual feedback
+    const el=marker.getElement();
+    if(el)el.style.filter='drop-shadow(0 0 8px rgba(255,100,0,.6))';
+}
+function saveMarkerPosition(){
+    if(!editingSpotId||!editingMarker)return;
+    const newLL=editingMarker.getLatLng();
+    const spot=spots.find(s=>s.id===editingSpotId);
+    if(spot){spot.lat=newLL.lat;spot.lng=newLL.lng; saveCoordOverride(spot.id, newLL.lat, newLL.lng);}
+    editingMarker.dragging.disable();
+    const el=editingMarker.getElement();
+    if(el)el.style.filter='';
+    document.getElementById('editBar').classList.remove('show');
+    // Redraw route lines
+    drawRouteLines(currentFilter==='all'?[1,2,3,4]:[currentFilter]);
+    editingSpotId=null;editingMarker=null;editOriginalLatLng=null;
+}
+function cancelEditPosition(){
+    if(!editingSpotId||!editingMarker)return;
+    editingMarker.setLatLng(editOriginalLatLng);
+    editingMarker.dragging.disable();
+    const el=editingMarker.getElement();
+    if(el)el.style.filter='';
+    document.getElementById('editBar').classList.remove('show');
+    editingSpotId=null;editingMarker=null;editOriginalLatLng=null;
+}
+
+
+// ===================== ADD SPOT FEATURE =====================
+let pickingLocation = false;
+let pickMarker = null;
+
+function showAddSpotModal(){
+    document.getElementById('addSpotModal').classList.add('show');
+    // Default day to current filter
+    if(currentFilter && currentFilter !== 'all'){
+        document.getElementById('addDay').value = currentFilter;
+    }
+}
+
+function hideAddSpotModal(){
+    document.getElementById('addSpotModal').classList.remove('show');
+    stopPickLocation();
+    // Clear form
+    ['addName','addTime','addAddress','addDesc','addImage','addLat','addLng','addTags','addTips'].forEach(id=>{
+        document.getElementById(id).value='';
+    });
+}
+
+function togglePickLocation(){
+    if(pickingLocation){stopPickLocation();}
+    else{startPickLocation();}
+}
+
+function startPickLocation(){
+    pickingLocation=true;
+    document.getElementById('pickLocBtn').classList.add('active');
+    document.getElementById('pickLocBtn').textContent='🎯 选点中...点击地图';
+    document.getElementById('addSpotModal').style.pointerEvents='none';
+    document.getElementById('addSpotModal').style.opacity='0.3';
+    map.getContainer().style.cursor='crosshair';
+    map.on('click', onMapPickLocation);
+}
+
+function stopPickLocation(){
+    pickingLocation=false;
+    document.getElementById('pickLocBtn').classList.remove('active');
+    document.getElementById('pickLocBtn').textContent='🎯 地图选点';
+    document.getElementById('addSpotModal').style.pointerEvents='auto';
+    document.getElementById('addSpotModal').style.opacity='1';
+    map.getContainer().style.cursor='';
+    map.off('click', onMapPickLocation);
+    if(pickMarker){map.removeLayer(pickMarker);pickMarker=null;}
+}
+
+function onMapPickLocation(e){
+    const lat=e.latlng.lat.toFixed(4);
+    const lng=e.latlng.lng.toFixed(4);
+    document.getElementById('addLat').value=lat;
+    document.getElementById('addLng').value=lng;
+    if(pickMarker)map.removeLayer(pickMarker);
+    pickMarker=L.marker([lat,lng],{icon:L.divIcon({className:'',html:'<div style="width:20px;height:20px;background:#2563EB;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map);
+    stopPickLocation();
+}
+
+function saveNewSpot(){
+    const name=document.getElementById('addName').value.trim();
+    const day=parseInt(document.getElementById('addDay').value);
+    const lat=parseFloat(document.getElementById('addLat').value);
+    const lng=parseFloat(document.getElementById('addLng').value);
+    
+    if(!name){alert('请输入打卡点名称');return;}
+    if(isNaN(lat)||isNaN(lng)){alert('请设置坐标位置（点击「地图选点」在地图上选取）');return;}
+    
+    const type=document.getElementById('addType').value;
+    const time=document.getElementById('addTime').value.trim()||'待定';
+    const address=document.getElementById('addAddress').value.trim()||'';
+    const desc=document.getElementById('addDesc').value.trim()||'';
+    const image=document.getElementById('addImage').value.trim()||'';
+    const tips=document.getElementById('addTips').value.trim()||'';
+    const tagsStr=document.getElementById('addTags').value.trim();
+    const tags=tagsStr?tagsStr.split(',').map(t=>t.trim()):[];
+    const tagClasses=tags.map(()=>'');
+    
+    // Calculate order: append after last spot of this day
+    const daySpots=spots.filter(s=>s.day===day);
+    const maxOrder=daySpots.length?Math.max(...daySpots.map(s=>s.order)):0;
+    const order=maxOrder+1;
+    
+    const id='custom_'+Date.now();
+    
+    const newSpot={
+        id, name, day, order, time, lat, lng, type,
+        tags, tagClasses,
+        image, address, desc,
+        foods:[], photos:[], tips,
+        _custom:true
+    };
+    
+    spots.push(newSpot);
+    createMarker(newSpot);
+    drawRouteLines();
+    renderSidebar();
+    saveCustomSpot(newSpot);
+    
+    hideAddSpotModal();
+    
+    // Open the new spot detail
+    setTimeout(()=>openDetail(id),300);
+}
+
+// ===================== FULLSCREEN DETAIL =====================
+function toggleDetailFullscreen(){
+    const panel=document.getElementById('detailPanel');
+    panel.classList.toggle('fullscreen');
+    const btn=panel.querySelector('.detail-fullscreen-btn');
+    if(panel.classList.contains('fullscreen')){
+        btn.textContent='⊗';
+        btn.title='退出全屏';
+    } else {
+        btn.textContent='⛶';
+        btn.title='全屏';
+    }
+}
+
+// closeDetail already handles fullscreen exit
+
+</script>
+
+<!-- ADD SPOT FAB -->
+<!-- SYNC TOOLBAR -->
+<div class="sync-toolbar" id="syncToolbar">
+    <button class="fab-btn primary" onclick="showAddSpotModal()" title="新增打卡点">+</button>
+    <button class="fab-btn sync" onclick="toggleSyncMenu()" title="同步管理" id="syncFab">⇄<span class="fab-badge" id="syncBadge" style="display:none">0</span></button>
+    <div class="fab-menu" id="syncMenu">
+        <div class="fab-menu-item" onclick="generateSyncUrl()"><span class="menu-icon">🔗</span>生成同步链接</div>
+        <div class="fab-menu-item" onclick="exportConfig()"><span class="menu-icon">📤</span>导出配置文件</div>
+        <div class="fab-menu-item" onclick="document.getElementById('importFileInput').click()"><span class="menu-icon">📥</span>导入配置文件</div>
+        <div class="fab-menu-divider"></div>
+        <div class="fab-menu-item" onclick="resetAllCustomData()"><span class="menu-icon">↺</span>重置所有修改</div>
+    </div>
+    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importConfig(event)">
+    <div class="sync-status" id="syncStatus"></div>
+</div>
+<div class="sync-toast" id="syncToast"></div>
+
+<!-- ADD SPOT MODAL -->
+<div class="modal-overlay" id="addSpotModal">
+    <div class="modal-box">
+        <div class="modal-title">📍 新增打卡点</div>
+        <div class="modal-row">
+            <div class="modal-field"><label class="modal-label">名称 *</label><input class="modal-input" id="addName" placeholder="如：星巴克海港城店"></div>
+            <div class="modal-field"><label class="modal-label">所属天数 *</label>
+                <select class="modal-select" id="addDay"><option value="1">Day 1</option><option value="2">Day 2</option><option value="3">Day 3</option><option value="4">Day 4</option></select>
+            </div>
+        </div>
+        <div class="modal-row">
+            <div class="modal-field"><label class="modal-label">时间</label><input class="modal-input" id="addTime" placeholder="如：14:00-15:30"></div>
+            <div class="modal-field"><label class="modal-label">类型</label>
+                <select class="modal-select" id="addType"><option value="landmark">🏛️ 地标</option><option value="food">🍜 美食</option><option value="shop">🛍️ 购物</option><option value="photo">📸 拍照</option><option value="activity">🎯 体验</option><option value="hotel">🏨 住宿</option><option value="transport">🚌 交通</option></select>
+            </div>
+        </div>
+        <div class="modal-field"><label class="modal-label">地址</label><input class="modal-input" id="addAddress" placeholder="详细地址"></div>
+        <div class="modal-field"><label class="modal-label">简介</label><textarea class="modal-textarea" id="addDesc" placeholder="简单描述这个打卡点"></textarea></div>
+        <div class="modal-field"><label class="modal-label">图片链接</label><input class="modal-input" id="addImage" placeholder="https://..."></div>
+        <div class="modal-field">
+            <label class="modal-label">坐标位置 *</label>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input class="modal-input" id="addLat" placeholder="纬度" style="width:120px">
+                <input class="modal-input" id="addLng" placeholder="经度" style="width:120px">
+                <button class="modal-pick-btn" id="pickLocBtn" onclick="togglePickLocation()">🎯 地图选点</button>
+            </div>
+            <div class="modal-hint">点击「地图选点」后，在地图上点击任意位置获取坐标</div>
+        </div>
+        <div class="modal-field"><label class="modal-label">标签（逗号分隔）</label><input class="modal-input" id="addTags" placeholder="如：🍜 美食, 📸 出片"></div>
+        <div class="modal-field"><label class="modal-label">小贴士</label><textarea class="modal-textarea" id="addTips" placeholder="实用建议" rows="2"></textarea></div>
+        <div class="modal-actions">
+            <button class="modal-btn" onclick="hideAddSpotModal()">取消</button>
+            <button class="modal-btn primary" onclick="saveNewSpot()">✓ 保存打卡点</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
