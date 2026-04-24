@@ -18,6 +18,8 @@
 
         /* === HEADER === */
         .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(250,249,247,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+        .back-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:14px;color:var(--text);transition:all .2s;text-decoration:none;flex-shrink:0}
+        .back-btn:hover{background:#F3F4F6;border-color:#aaa;transform:scale(1.05)}
         .header-left{display:flex;align-items:center;gap:10px}
         .header-logo{font-size:22px}
         .header-title{font-size:16px;font-weight:700;letter-spacing:.5px}
@@ -292,6 +294,7 @@
 <body>
 <div class="header">
     <div class="header-left">
+        <a class="back-btn" href="../" title="返回旅行地图集">←</a>
         <span class="header-logo">🇭🇰</span>
         <div>
             <div class="header-title">港澳四日漫游</div>
