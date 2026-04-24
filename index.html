@@ -24,9 +24,13 @@
 
         .trip-card{background:var(--card-bg);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px var(--shadow);border:1px solid var(--border);transition:all .3s ease;cursor:pointer;text-decoration:none;color:inherit;display:block}
         .trip-card:hover{transform:translateY(-4px);box-shadow:0 8px 32px rgba(0,0,0,.1)}
-        .trip-card-cover{height:180px;background-size:cover;background-position:center;position:relative}
-        .trip-card-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 40%,rgba(0,0,0,.5))}
-        .trip-card-emoji{position:absolute;bottom:12px;left:16px;font-size:32px;z-index:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+
+        .trip-card-cover{height:180px;background-size:cover;background-position:center;position:relative;overflow:hidden}
+        .trip-card-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(0,0,0,.55))}
+        .trip-card-badge{position:absolute;bottom:12px;left:16px;z-index:1;display:flex;align-items:center;gap:6px}
+        .trip-card-emoji{font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+        .trip-card-location{color:#fff;font-size:13px;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.5);letter-spacing:.5px}
+
         .trip-card-body{padding:16px 18px 20px}
         .trip-card-title{font-size:18px;font-weight:700;margin-bottom:4px}
         .trip-card-date{font-size:12px;color:var(--text-light);margin-bottom:10px}
@@ -60,10 +64,35 @@
 </div>
 
 <div class="trips-grid">
+    <!-- 南京三日游 -->
+    <a class="trip-card" href="./nanjing/">
+        <div class="trip-card-cover" style="background-image:url('./images/cover-nj.jpg')">
+            <div class="trip-card-badge">
+                <span class="trip-card-emoji">🏯</span>
+                <span class="trip-card-location">南京 · NANJING</span>
+            </div>
+        </div>
+        <div class="trip-card-body">
+            <div class="trip-card-title">南京三日漫游</div>
+            <div class="trip-card-date">2026.05.02 — 05.04</div>
+            <div class="trip-card-desc">从牛首山的佛光禅意到玄武湖的碧波荡漾，穿越颐和路的梧桐时光隧道，登上中山陵392级台阶，在美龄宫邂逅「最美项链」。</div>
+            <div class="trip-card-tags">
+                <span class="trip-tag">牛首山</span>
+                <span class="trip-tag">City Walk</span>
+                <span class="trip-tag">中山陵</span>
+                <span class="trip-tag">民国风</span>
+                <span class="trip-tag">3天2晚</span>
+            </div>
+        </div>
+    </a>
+
     <!-- 港澳四日游 -->
     <a class="trip-card" href="./hk-macau/">
-        <div class="trip-card-cover" style="background-image:url('https://images.unsplash.com/photo-1536599018102-9f803c979b13?w=600&q=80')">
-            <span class="trip-card-emoji">🇭🇰</span>
+        <div class="trip-card-cover" style="background-image:url('./images/cover-hk.jpg')">
+            <div class="trip-card-badge">
+                <span class="trip-card-emoji">🇭🇰</span>
+                <span class="trip-card-location">港澳 · HK & MACAU</span>
+            </div>
         </div>
         <div class="trip-card-body">
             <div class="trip-card-title">港澳四日漫游</div>
@@ -72,7 +101,7 @@
             <div class="trip-card-tags">
                 <span class="trip-tag">港岛</span>
                 <span class="trip-tag">九龙</span>
-                <span class="trip-tag">凼仔</span>
+                <span class="trip-tag">氹仔</span>
                 <span class="trip-tag">澳门半岛</span>
                 <span class="trip-tag">4天3晚</span>
             </div>
