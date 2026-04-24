@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>南京三日漫游</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --day1:#2D8C4E;--day2:#2563EB;--day3:#E06C2D;
+            --bg:#FAF9F7;--card-bg:#FFF;--text:#1A1A1A;--text-light:#6B7280;
+            --border:#E5E5E5;--shadow:rgba(0,0,0,.06);
+        }
+        body{font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+
+        /* === HEADER === */
+        .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(250,249,247,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+        .header-left{display:flex;align-items:center;gap:10px}
+        .header-logo{font-size:22px}
+        .header-title{font-size:16px;font-weight:700;letter-spacing:.5px}
+        .header-subtitle{font-size:11px;color:var(--text-light);font-weight:300;margin-top:1px}
+
+        /* === LAYOUT === */
+        .main-container{display:flex;height:100vh;padding-top:52px}
+        .sidebar{position:relative;width:340px;min-width:340px;height:calc(100vh - 52px);overflow-y:auto;background:var(--bg);border-right:1px solid var(--border);padding:14px;scrollbar-width:thin;scrollbar-color:#ccc transparent}
+        .sidebar::-webkit-scrollbar{width:4px}
+        .sidebar::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px}
+        /* === SIDEBAR TOGGLE === */
+        .sidebar-toggle{position:fixed;top:50%;left:340px;transform:translateY(-50%);width:24px;height:56px;background:var(--card-bg);border:1px solid var(--border);border-left:none;border-radius:0 10px 10px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1001;box-shadow:2px 0 8px rgba(0,0,0,.08);font-size:13px;color:var(--text-light);transition:left .35s cubic-bezier(.4,0,.2,1)}
+        .sidebar-toggle:hover{background:#f0f0f0;color:var(--text)}
+        .sidebar-toggle.collapsed{left:0}
+        .sidebar{position:relative;transition:width .35s cubic-bezier(.4,0,.2,1),min-width .35s cubic-bezier(.4,0,.2,1),padding .35s cubic-bezier(.4,0,.2,1),opacity .3s}
+        .sidebar.collapsed{width:0!important;min-width:0!important;padding:0!important;overflow:hidden;opacity:0;border-right:none}
+        
+        .sidebar-expand-btn{position:fixed;top:50%;left:0;transform:translateY(-50%);width:24px;height:56px;background:var(--card-bg);border:1px solid var(--border);border-left:none;border-radius:0 10px 10px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1001;box-shadow:2px 0 8px rgba(0,0,0,.06);transition:all .2s;font-size:12px;color:var(--text-light);display:none}
+        .sidebar-expand-btn:hover{background:#f0f0f0;color:var(--text)}
+        .sidebar-expand-btn.show{display:flex}
+
+        .map-container{flex:1;position:relative}
+        #map{width:100%;height:100%}
+
+        
+        /* === EDIT MODE === */
+        .edit-bar{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:800;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);border:1px solid var(--border);display:none;font-size:13px}
+        .edit-bar.show{display:flex}
+        .edit-bar span{color:var(--text);font-weight:500}
+        .edit-bar-btn{padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:12px;font-weight:500;transition:all .2s}
+        .edit-bar-btn.save{background:#2D8C4E;color:#fff;border-color:#2D8C4E}
+        .edit-bar-btn.save:hover{background:#246e3e}
+        .edit-bar-btn.cancel{background:#f5f5f5;color:#666}
+        .edit-bar-btn.cancel:hover{background:#e5e5e5}
+        
+        
+
+        /* === DETAIL PANEL (right side of map) === */
+        .detail-panel{position:absolute;top:0;right:0;width:380px;height:100%;z-index:900;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);scrollbar-width:thin}
+        .detail-panel.open{transform:translateX(0)}
+        .detail-panel::-webkit-scrollbar{width:4px}
+        .detail-panel::-webkit-scrollbar-thumb{background:#ddd;border-radius:4px}
+        .detail-close{position:static;flex-shrink:0;width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,.06);cursor:pointer;font-size:16px;color:#666;display:flex;align-items:center;justify-content:center;z-index:10;transition:all .2s}
+        .detail-close:hover{background:rgba(0,0,0,.12);color:#333}
+
+        .detail-image{width:100%;height:200px;overflow:hidden;background:linear-gradient(135deg,#f0ede8,#e8e4df);position:relative}
+        .detail-image img{width:100%;height:100%;object-fit:cover}
+        .detail-image-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px}
+        .detail-day-badge{position:absolute;top:12px;left:12px;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;color:#fff;backdrop-filter:blur(6px)}
+
+        .detail-header{padding:18px 18px 12px}
+        .detail-title{font-size:20px;font-weight:700;padding-right:36px}
+        .detail-meta{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+        .detail-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;background:#f3f4f6;color:var(--text-light)}
+
+        .detail-body{padding:0 18px 20px}
+        .detail-section{margin-bottom:14px}
+        .detail-section:last-child{margin-bottom:0}
+        .detail-section-title{font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+        .detail-section-content{font-size:12.5px;line-height:1.8;color:var(--text)}
+        .detail-food-item{display:flex;align-items:flex-start;gap:7px;padding:4px 0}
+        .detail-food-emoji{font-size:15px;flex-shrink:0;margin-top:1px}
+        .detail-food-name{font-weight:600;font-size:12.5px}
+        .detail-food-desc{font-size:10.5px;color:var(--text-light);margin-top:1px}
+        .detail-tip{background:#f8f6f3;border-radius:8px;padding:8px 12px;font-size:11.5px;line-height:1.7;color:var(--text-light)}
+        .detail-tip strong{color:var(--text)}
+        .photo-spot-item{display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:3px}
+
+        
+        .detail-top-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(250,249,247,.8);position:sticky;top:0;z-index:10}
+        .edit-loc-top{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;color:var(--text-light);display:flex;align-items:center;gap:4px;transition:all .2s}
+        .edit-loc-top:hover{background:rgba(0,0,0,.04);color:var(--text)}
+        /* === DETAIL NAV TOP === */
+        .detail-nav-top{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(250,249,247,.8)}
+        .detail-nav-btn{padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:11px;font-weight:500;color:var(--text-light);transition:all .2s;display:flex;align-items:center;gap:4px}
+        .detail-nav-btn:hover{background:#f0f0f0;color:var(--text)}
+        .detail-nav-btn:disabled{opacity:.3;cursor:default;pointer-events:none}
+        .detail-nav-btn .arrow{font-size:10px}
+        .detail-nav-counter{font-size:11px;color:var(--text-light);font-weight:400}
+
+        .detail-next-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;margin-top:16px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;color:#fff}
+        .detail-next-btn:hover{opacity:.88;transform:translateY(-1px)}
+        .detail-next-btn .arrow{font-size:16px}
+
+        /* === DAY FILTER (map overlay) === */
+        .day-filter{position:absolute;top:12px;left:54px;z-index:800;display:flex;gap:5px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);padding:6px 10px;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+        .day-tab{padding:5px 13px;border-radius:16px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text-light);transition:all .3s;white-space:nowrap;font-family:inherit}
+        .day-tab:hover{border-color:#aaa}
+        .day-tab.active{color:#fff}
+        .day-tab.active[data-day="all"]{background:var(--text);border-color:var(--text)}
+        .day-tab.active[data-day="1"]{background:var(--day1);border-color:var(--day1)}
+        .day-tab.active[data-day="2"]{background:var(--day2);border-color:var(--day2)}
+        .day-tab.active[data-day="3"]{background:var(--day3);border-color:var(--day3)}
+        .day-tab.active[data-day="4"]{background:var(--day4);border-color:var(--day4)}
+
+        /* === SIDEBAR === */
+        .day-section{margin-bottom:16px}
+        .day-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;border-radius:10px;background:#fff;border:1px solid var(--border)}
+        .day-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+        .day-header-text h3{font-size:14px;font-weight:700}
+        .day-header-text p{font-size:10px;color:var(--text-light);margin-top:1px}
+        .timeline{position:relative;padding-left:22px}
+        .timeline::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:var(--border);border-radius:1px}
+        .timeline-item{position:relative;margin-bottom:8px;cursor:pointer}
+        .timeline-dot{position:absolute;left:-18px;top:12px;width:11px;height:11px;border-radius:50%;border:2.5px solid var(--day1);background:#fff;z-index:2;transition:all .3s}
+        .timeline-item:hover .timeline-dot,.timeline-item.active .timeline-dot{transform:scale(1.3)}
+        .timeline-item:hover .timeline-dot,.timeline-item.active .timeline-dot{background:var(--day1)}
+        .timeline-item.day2 .timeline-dot{border-color:var(--day2)}.timeline-item.day2:hover .timeline-dot,.timeline-item.day2.active .timeline-dot{background:var(--day2)}
+        .timeline-item.day3 .timeline-dot{border-color:var(--day3)}.timeline-item.day3:hover .timeline-dot,.timeline-item.day3.active .timeline-dot{background:var(--day3)}
+        .timeline-item.day4 .timeline-dot{border-color:var(--day4)}.timeline-item.day4:hover .timeline-dot,.timeline-item.day4.active .timeline-dot{background:var(--day4)}
+        .spot-card{background:#fff;border-radius:10px;padding:10px 12px;border:1.5px solid transparent;transition:all .3s;box-shadow:0 1px 3px var(--shadow)}
+        .spot-card:hover{border-color:var(--day1);box-shadow:0 3px 10px rgba(45,140,78,.1);transform:translateY(-1px)}
+        .timeline-item.active .spot-card{border-color:var(--day1);box-shadow:0 4px 14px rgba(45,140,78,.15)}
+        .timeline-item.day2 .spot-card:hover,.timeline-item.day2.active .spot-card{border-color:var(--day2);box-shadow:0 4px 14px rgba(37,99,235,.12)}
+        .timeline-item.day3 .spot-card:hover,.timeline-item.day3.active .spot-card{border-color:var(--day3);box-shadow:0 4px 14px rgba(224,108,45,.12)}
+        .timeline-item.day4 .spot-card:hover,.timeline-item.day4.active .spot-card{border-color:var(--day4);box-shadow:0 4px 14px rgba(147,51,234,.12)}
+        .spot-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+        .spot-name{font-size:13px;font-weight:600}
+        .spot-time{font-size:10px;color:var(--text-light);background:#f5f3f0;padding:2px 7px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+        .spot-tags{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+        .spot-tag{font-size:9px;padding:1px 6px;border-radius:6px;background:#ECFDF5;color:var(--day1);font-weight:500}
+        .spot-tag.food{background:#FFF7ED;color:var(--day3)}.spot-tag.transport{background:#EFF6FF;color:var(--day2)}.spot-tag.shop{background:#F5F3FF;color:var(--day4)}.spot-tag.photo{background:#FEF2F2;color:#DC2626}
+        .transport-connector{display:flex;align-items:center;gap:5px;padding:3px 0 3px 3px;font-size:10px;color:var(--text-light)}
+        .transport-line{flex:1;height:1px;background:repeating-linear-gradient(90deg,#d0d0d0,#d0d0d0 4px,transparent 4px,transparent 8px)}
+        .transport-duration{font-size:9px;color:#999}
+
+        /* === MAP MARKERS === */
+        .custom-marker{position:relative}
+        .marker-pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:all .3s;border:2px solid #fff}
+        .marker-pin.day1{background:var(--day1)}.marker-pin.day2{background:var(--day2)}.marker-pin.day3{background:var(--day3)}.marker-pin.day4{background:var(--day4)}.marker-pin.hotel{background:#E11D48}
+        .marker-number{transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700;font-family:'Noto Sans SC',sans-serif}
+        .marker-label{position:absolute;top:-6px;left:34px;white-space:nowrap;background:rgba(255,255,255,.95);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;color:var(--text);box-shadow:0 1px 5px rgba(0,0,0,.15);pointer-events:none;font-family:'Noto Sans SC',sans-serif;border:1px solid rgba(0,0,0,.06)}
+
+        /* === LEGEND === */
+        .map-legend{position:absolute;bottom:20px;left:54px;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:10px;padding:12px 15px;box-shadow:0 2px 10px rgba(0,0,0,.08);z-index:800;font-size:11px}
+        .legend-title{font-weight:700;margin-bottom:6px;font-size:11px}
+        .legend-item{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+        .legend-color{width:10px;height:10px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+        .legend-text{color:var(--text-light);font-size:10px}
+
+        /* === BUFFER BADGE === */
+        .buffer-tag{font-size:9px;padding:1px 6px;border-radius:6px;background:#FEF3C7;color:#92400E;font-weight:500}
+
+        /* === MAP TILE LABEL SUPPRESSION === */
+        .leaflet-tile-pane{
+            filter: saturate(0.3) brightness(1.12) contrast(0.85);
+        }
+        /* Keep our overlays (markers, polylines) crisp and vivid - they sit in the overlay pane */
+        .leaflet-overlay-pane, .leaflet-marker-pane, .leaflet-shadow-pane, .leaflet-popup-pane{
+            filter: saturate(1) brightness(1) contrast(1);
+        }
+
+        /* === SELECTED MARKER HIGHLIGHT === */
+        .marker-pin.selected{
+            transform:rotate(-45deg) scale(1.45);
+            box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px currentColor, 0 4px 16px rgba(0,0,0,.35);
+            z-index:9000 !important;
+            transition:transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s ease;
+        }
+        .marker-pin.selected.day1{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day1), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.day2{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day2), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.day3{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day3), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.day4{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px var(--day4), 0 4px 16px rgba(0,0,0,.35)}
+        .marker-pin.selected.hotel{box-shadow:0 0 0 5px rgba(255,255,255,.7), 0 0 0 9px #E11D48, 0 4px 16px rgba(0,0,0,.35)}
+        @keyframes pulse-ring{
+            0%{transform:scale(1);opacity:.6}
+            100%{transform:scale(2.5);opacity:0}
+        }
+        .marker-pulse{
+            position:absolute;top:50%;left:50%;width:30px;height:30px;margin:-15px 0 0 -15px;
+            border-radius:50%;pointer-events:none;z-index:1;
+        }
+        .marker-pulse::before{
+            content:'';position:absolute;inset:0;border-radius:50%;
+            animation:pulse-ring 1.5s cubic-bezier(.215,.61,.355,1) infinite;
+        }
+        .marker-pulse.day1::before{background:var(--day1)}
+        .marker-pulse.day2::before{background:var(--day2)}
+        .marker-pulse.day3::before{background:var(--day3)}
+        .marker-pulse.day4::before{background:var(--day4)}
+        .marker-pulse.hotel::before{background:#E11D48}
+        .custom-marker{z-index:500 !important}
+        .custom-marker.marker-active{z-index:9999 !important}
+        .marker-label-selected{background:rgba(30,30,30,.9) !important;color:#fff !important;font-weight:700 !important;padding:3px 9px !important;border:none !important;box-shadow:0 2px 10px rgba(0,0,0,.3) !important}
+    
+        /* === ADD SPOT MODAL === */
+        .add-spot-fab{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2563EB,#7C3AED);color:#fff;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,.35);z-index:1100;display:flex;align-items:center;justify-content:center;transition:all .3s}
+        .add-spot-fab:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(37,99,235,.45)}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px}
+        .modal-overlay.show{display:flex}
+        .modal-box{background:#fff;border-radius:16px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 24px 48px rgba(0,0,0,.2);animation:modalIn .25s ease}
+        @keyframes modalIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .modal-title{font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+        .modal-field{margin-bottom:14px}
+        .modal-label{font-size:12px;font-weight:600;color:var(--text-light);margin-bottom:4px;display:block}
+        .modal-input,.modal-select,.modal-textarea{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#FAFAFA;transition:border .2s}
+        .modal-input:focus,.modal-select:focus,.modal-textarea:focus{outline:none;border-color:#2563EB;background:#fff}
+        .modal-textarea{resize:vertical;min-height:60px}
+        .modal-row{display:flex;gap:10px}
+        .modal-row .modal-field{flex:1}
+        .modal-actions{display:flex;gap:10px;margin-top:18px}
+        .modal-btn{flex:1;padding:10px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text);transition:all .2s;font-family:inherit}
+        .modal-btn.primary{background:linear-gradient(135deg,#2563EB,#7C3AED);color:#fff;border-color:transparent}
+        .modal-btn.primary:hover{opacity:.9}
+        .modal-btn:hover{background:#F3F4F6}
+        .modal-hint{font-size:11px;color:var(--text-light);margin-top:3px}
+        .modal-pick-btn{padding:6px 12px;border-radius:6px;border:1.5px dashed var(--border);background:#FAFAFA;cursor:pointer;font-size:12px;color:var(--text-light);transition:all .2s;display:inline-flex;align-items:center;gap:4px}
+        .modal-pick-btn:hover{border-color:#2563EB;color:#2563EB}
+        .modal-pick-btn.active{border-color:#2D8C4E;color:#2D8C4E;background:#2D8C4E10}
+
+        /* === FULLSCREEN DETAIL === */
+        .detail-fullscreen-btn{width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,.06);cursor:pointer;font-size:13px;color:#666;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+        .detail-fullscreen-btn:hover{background:rgba(0,0,0,.12);color:#333}
+        .detail-panel.fullscreen{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:100%!important;max-width:100%!important;border-radius:0!important;border:none!important;z-index:2500!important;transform:translateX(0)!important}
+        .detail-panel.fullscreen .detail-image img{max-height:50vh;object-fit:contain}
+
+        /* === RESPONSIVE IMPROVEMENTS === */
+        @media(max-width:900px){
+            .main-container{flex-direction:column}
+            .sidebar{width:100%;min-width:auto;height:35vh;border-right:none;border-bottom:1px solid var(--border)}
+            .map-container{height:65vh}
+            .detail-panel{width:100%;height:60%;top:auto;bottom:0;right:0;transform:translateY(100%);border-left:none;border-top:1px solid var(--border);border-radius:16px 16px 0 0}
+            .detail-panel.open{transform:translateY(0)}
+            .detail-panel.fullscreen{height:100%;top:0;border-radius:0;border-top:none}
+            .day-filter{left:10px;top:10px;flex-wrap:wrap;max-width:calc(100% - 20px)}
+            .add-spot-fab{bottom:16px;right:16px;width:44px;height:44px;font-size:20px}
+            .modal-box{margin:8px;max-height:90vh;padding:18px}
+            .sidebar-toggle,.sidebar-expand-btn{display:none!important}
+            .map-legend{display:none}
+        }
+        @media(max-width:480px){
+            .header{padding:8px 12px}
+            .header-title{font-size:15px}
+            .header-subtitle{font-size:10px}
+            .detail-panel{height:70%}
+            .detail-top-bar{padding:6px 10px}
+            .detail-nav-top{padding:6px 10px}
+            .detail-nav-btn{padding:3px 8px;font-size:10px}
+            .day-tab{padding:4px 10px;font-size:11px}
+            .modal-box{padding:14px}
+        }
+
+    
+        /* ===== SYNC TOOLBAR ===== */
+        .sync-toolbar{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column-reverse;gap:10px;z-index:1100;align-items:flex-end}
+        .fab-btn{width:48px;height:48px;border-radius:50%;color:#fff;border:none;font-size:22px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;transition:all .3s;position:relative}
+        .fab-btn:hover{transform:scale(1.08)}
+        .fab-btn.primary{background:linear-gradient(135deg,#2563EB,#7C3AED);width:52px;height:52px;font-size:26px}
+        .fab-btn.sync{background:linear-gradient(135deg,#059669,#10B981)}
+        .fab-btn.reset{background:linear-gradient(135deg,#E06C2D,#DC2626);width:40px;height:40px;font-size:16px}
+        .fab-btn .fab-badge{position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:10px;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;padding:0 4px}
+        .fab-menu{position:absolute;bottom:56px;right:0;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:8px 0;min-width:200px;display:none;animation:modalIn .2s ease}
+        .fab-menu.show{display:block}
+        .fab-menu-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:14px;color:#1A1A1A;white-space:nowrap;transition:background .15s}
+        .fab-menu-item:hover{background:#F3F4F6}
+        .fab-menu-item .menu-icon{font-size:18px;width:24px;text-align:center}
+        .fab-menu-divider{height:1px;background:#E5E7EB;margin:4px 12px}
+        .sync-toast{position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+        .sync-toast.show{opacity:1}
+        .sync-status{font-size:11px;color:#6B7280;text-align:center;padding:4px 8px;background:rgba(255,255,255,.9);border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.1);max-width:160px;line-height:1.3;display:none}
+        .sync-status.has-data{display:block}
+        @media(max-width:480px){
+            .sync-toolbar{bottom:16px;right:16px;gap:8px}
+            .fab-btn{width:44px;height:44px;font-size:20px}
+            .fab-btn.primary{width:48px;height:48px;font-size:22px}
+            .fab-btn.reset{width:36px;height:36px;font-size:14px}
+            .fab-menu{min-width:180px}
+        }
+
+        </style>
+</head>
+<body>
+<div class="header">
+    <div class="header-left">
+        <span class="header-logo">🏯</span>
+        <div>
+            <div class="header-title">南京三日漫游</div>
+            <div class="header-subtitle">2026.05.02 — 05.04 · 牛首山 · 民国风 · 中山陵</div>
+        </div>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="sidebar" id="sidebar"></div>
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="收起侧边栏">◀</button>
+    
+    <button class="sidebar-expand-btn" id="sidebarExpand" onclick="toggleSidebar()" title="展开侧边栏">▶</button>
+    <div class="map-container">
+        <div id="map"></div><div class="edit-bar" id="editBar"><span>📍 拖动标记到正确位置</span><button class="edit-bar-btn save" onclick="saveMarkerPosition()">✓ 保存</button><button class="edit-bar-btn cancel" onclick="cancelEditPosition()">✗ 取消</button></div>
+        <div class="day-filter" id="dayFilter">
+            <div class="day-tab active" data-day="all" onclick="filterDay('all')">全部</div>
+            <div class="day-tab" data-day="1" onclick="filterDay(1)">Day 1</div>
+            <div class="day-tab" data-day="2" onclick="filterDay(2)">Day 2</div>
+            <div class="day-tab" data-day="3" onclick="filterDay(3)">Day 3</div></div>
+            <div class="day-tab" data-day="1" onclick="filterDay(1)">Day1 · 5/2</div>
+            <div class="day-tab" data-day="2" onclick="filterDay(2)">Day2 · 5/3</div>
+            <div class="day-tab" data-day="3" onclick="filterDay(3)">Day3 · 5/4</div>
+            <div class="day-tab" data-day="4" onclick="filterDay(4)">Day4 · 5/5</div>
+        </div>
+        <div class="map-legend">
+            <div class="legend-title">图例</div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day1)"></div><span class="legend-text">Day1 景点游玩</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day2)"></div><span class="legend-text">Day2 City Walk</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--day3)"></div><span class="legend-text">Day3 钟山风景区</span></div>
+        </div>
+        <!-- RIGHT-SIDE DETAIL PANEL -->
+        <div class="detail-panel" id="detailPanel">
+            <div class="detail-top-bar"><button class="edit-loc-top" id="detailEditBtn">✏️ 调整位置</button><div style="display:flex;gap:6px;align-items:center"><button class="detail-fullscreen-btn" onclick="toggleDetailFullscreen()" title="全屏">⛶</button><button class="detail-close" onclick="closeDetail()">×</button></div></div>
+            <div class="detail-nav-top" id="detailNavTop"></div>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===================== SPOT DATA =====================
+const spots = [
+    { id:'nanjing_south_arr', name:'南京南站', day:1, order:1, time:'10:17 抵达', lat:31.974425, lng:118.797346, type:'transport', tags:["🚄 高铁", "起点"], tagClasses:["tag-transport", "tag-start"], address:'南京市雨花台区南京南站', desc:'北京出发 6:52，高铁约3.5小时抵达南京南站。南京南站是华东地区最大的交通枢纽之一。', foods:[], photos:[], tips:'出站后可乘地铁S1/S3/1/3号线前往各景点', transport_to_next:{mode:'🚇 地铁',desc:'地铁S1号线→河海大学佛城西路站',duration:'约40分钟'} },
+    { id:'niushoushan', name:'牛首山文化旅游区', day:1, order:2, time:'11:00 - 14:30', lat:31.911624, lng:118.744193, type:'landmark', tags:["⛩️ 佛教名山", "🌿 自然风光", "🔥 热门"], tagClasses:["tag-culture", "tag-nature", "tag-hot"], image:'https://images.unsplash.com/photo-1599707367938-4ddc3f567c80?w=400&q=80', address:'南京市江宁区宁丹大道18号', desc:'牛首山因山顶双峰似牛角而得名，素有「春牛首」美誉。佛顶宫供奉释迦牟尼佛顶骨舍利，建筑恢弘壮丽。', foods:[{name:'素斋',note:'景区内佛顶宫附近有素斋餐厅'}], photos:[{name:'佛顶宫',note:'地下宫殿金碧辉煌'},{name:'郑和文化园',note:'郑和墓所在地'}], tips:'建议穿舒适步行鞋，景区较大需要步行较多；门票约98元', transport_to_next:{mode:'🚇 地铁+公交',desc:'返回地铁S1号线→1号线→玄武湖方向',duration:'约1小时'} },
+    { id:'xuanwuhu', name:'玄武湖公园', day:1, order:3, time:'15:30 - 17:30', lat:32.078656, lng:118.789664, type:'landmark', tags:["🌊 湖泊", "🌿 公园", "免费"], tagClasses:["tag-nature", "tag-nature", "tag-free"], image:'https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400&q=80', address:'南京市玄武区玄武巷1号', desc:'玄武湖是中国最大的皇家园林湖泊，湖中有五洲，与紫金山遥相辉映。傍晚漫步湖畔可远眺明城墙与鸡鸣寺。', foods:[{name:'莲湖糕团',note:'湖畔老字号'}], photos:[{name:'环洲烟柳',note:'五洲之一，柳堤如画'},{name:'城墙倒影',note:'明城墙与湖水交映'}], tips:'免费开放，建议从玄武门入园；傍晚光线最佳', transport_to_next:{mode:'🚌 公交/步行',desc:'公交或步行前往颐和路',duration:'约20分钟'} },
+    { id:'yihelu', name:'颐和路', day:1, order:4, time:'18:00 - 19:30', lat:32.067842, lng:118.758127, type:'landmark', tags:["🏛️ 民国建筑", "📸 拍照", "🌳 梧桐大道"], tagClasses:["tag-culture", "tag-photo", "tag-nature"], address:'南京市鼓楼区颐和路', desc:'颐和路历史文化街区被誉为「中国最美林荫道」，两旁法式梧桐遮天蔽日，民国风格公馆林立，漫步其中仿佛穿越回民国时光。', foods:[{name:'先锋书店',note:'颐和路附近有先锋书店分店'}], photos:[{name:'民国公馆',note:'各国大使馆旧址'},{name:'梧桐树荫',note:'初夏绿意盎然'}], tips:'傍晚散步最佳，可配合第二天City Walk路线深度游' },
+    { id:'citywalk_start', name:'北京西路（City Walk起点）', day:2, order:1, time:'09:00 出发', lat:32.067143, lng:118.759978, type:'landmark', tags:["🚶 City Walk", "起点"], tagClasses:["tag-walk", "tag-start"], address:'南京市鼓楼区北京西路', desc:'南京最经典的City Walk路线之一，从北京西路出发，穿越民国风建筑群与梧桐大道，感受南京最文艺的一面。', foods:[], photos:[], tips:'建议穿舒适步行鞋，全程约5-6公里', transport_to_next:{mode:'🚶 步行',desc:'沿北京西路向南步行',duration:'约5分钟'} },
+    { id:'moganlu', name:'莫干路', day:2, order:2, time:'09:15', lat:32.061541, lng:118.758578, type:'landmark', tags:["🚶 City Walk", "🏛️ 民国风"], tagClasses:["tag-walk", "tag-culture"], address:'南京市鼓楼区莫干路', desc:'莫干路两旁梧桐如盖，安静的小路上分布着不少民国建筑和文艺小店。', foods:[], photos:[], transport_to_next:{mode:'🚶 步行',desc:'继续向南步行',duration:'约5分钟'} },
+    { id:'gulinglu', name:'牯岭路', day:2, order:3, time:'09:30', lat:32.059241, lng:118.759278, type:'landmark', tags:["🚶 City Walk", "📸 文艺"], tagClasses:["tag-walk", "tag-photo"], address:'南京市鼓楼区牯岭路', desc:'牯岭路是南京知名的文艺街道，曾因先锋书店而名声大噪。街道两旁老建筑与新业态交融。', foods:[], photos:[], transport_to_next:{mode:'🚶 步行',desc:'步行至颐和路方向',duration:'约8分钟'} },
+    { id:'yihelu_d2', name:'颐和路（深度游）', day:2, order:4, time:'09:45 - 10:30', lat:32.06734, lng:118.7575, type:'landmark', tags:["🚶 City Walk", "🏛️ 民国公馆区"], tagClasses:["tag-walk", "tag-culture"], address:'南京市鼓楼区颐和路历史文化街区', desc:'白天再次穿行颐和路，细看各国使馆旧址与民国公馆建筑，体验更丰富的历史细节。颐和路公馆区是南京规模最大的民国建筑群。', foods:[], photos:[{name:'颐和公馆',note:'精品酒店改造的民国别墅'}], transport_to_next:{mode:'🚶 步行',desc:'步行至金银街',duration:'约10分钟'} },
+    { id:'jinyinjie', name:'金银街', day:2, order:5, time:'10:40 - 11:20', lat:32.063544, lng:118.76298, type:'food', tags:["🚶 City Walk", "🍜 美食街"], tagClasses:["tag-walk", "tag-food"], address:'南京市鼓楼区金银街', desc:'金银街是南大附近知名的美食街，汇集各类小吃和特色餐饮，文艺气息浓厚。', foods:[{name:'各类南京小吃',note:'鸭血粉丝汤、锅贴等'}], photos:[], transport_to_next:{mode:'🚶 步行',desc:'步行至桃谷新村',duration:'约8分钟'} },
+    { id:'taoguxincun', name:'桃谷新村', day:2, order:6, time:'11:30 - 12:00', lat:32.059942, lng:118.761479, type:'landmark', tags:["🚶 City Walk", "🏘️ 老街区"], tagClasses:["tag-walk", "tag-local"], address:'南京市鼓楼区桃谷新村', desc:'桃谷新村是南京典型的老住宅区，保留了浓厚的市井生活气息，适合体验本地人的日常。', foods:[], photos:[], transport_to_next:{mode:'🚶 步行',desc:'步行至南太巷',duration:'约5分钟'} },
+    { id:'nantaixiang', name:'南太巷', day:2, order:7, time:'12:10 - 12:30', lat:32.059045, lng:118.765382, type:'landmark', tags:["🚶 City Walk", "🏛️ 旧址"], tagClasses:["tag-walk", "tag-culture"], address:'南京市鼓楼区南太巷', desc:'南太巷保留了不少老南京的巷弄风貌，石板路与旧墙交错，是City Walk的隐藏宝藏路段。', foods:[], photos:[], transport_to_next:{mode:'🚶 步行',desc:'步行至王府大街',duration:'约15分钟'} },
+    { id:'wangfudajie', name:'王府大街', day:2, order:8, time:'12:45 - 13:30', lat:32.052355, lng:118.778297, type:'food', tags:["🚶 City Walk", "终点", "🍜 午餐"], tagClasses:["tag-walk", "tag-end", "tag-food"], address:'南京市秦淮区王府大街', desc:'王府大街是南京传统商业街，靠近新街口商圈，可在此享用午餐休整。', foods:[{name:'南京大牌档',note:'地道南京菜'},{name:'鸭血粉丝汤',note:'南京必吃'}], photos:[], tips:'City Walk终点，下午可自由活动后前往德基' },
+    { id:'deji_museum', name:'德基艺术博物馆', day:2, order:9, time:'19:00 - 21:00', lat:32.052954, lng:118.776995, type:'landmark', tags:["🎨 艺术", "🌙 夜间", "🔥 热门"], tagClasses:["tag-art", "tag-night", "tag-hot"], image:'https://images.unsplash.com/photo-1554907984-15263bfd63bd?w=400&q=80', address:'南京市秦淮区中山路18号德基广场二期8F', desc:'德基艺术博物馆位于德基广场顶层，是国内顶级私人美术馆之一。常设中国古代艺术与当代艺术展览，展陈设计极具美感。', foods:[], photos:[{name:'金蝉玉叶',note:'镇馆之宝'}], tips:'建议提前购票，门票约50元；周一闭馆' },
+    { id:'yinyuetai', name:'中山陵音乐台', day:3, order:1, time:'08:30 - 09:30', lat:32.05798, lng:118.851336, type:'landmark', tags:["🎵 音乐台", "🕊️ 鸽子", "📸 拍照"], tagClasses:["tag-culture", "tag-nature", "tag-photo"], image:'https://images.unsplash.com/photo-1569074187119-c87815b476da?w=400&q=80', address:'南京市玄武区中山陵音乐台', desc:'音乐台建于1933年，是中山陵纪念建筑群的一部分。半圆形的草坪剧场被绿树环绕，数百只和平鸽在此栖息，是南京最受欢迎的打卡地之一。', foods:[], photos:[{name:'鸽群',note:'成群白鸽在音乐台飞翔'},{name:'半圆舞台',note:'民国建筑精品'}], tips:'早上前往人少，门票10元；可以带鸽食', transport_to_next:{mode:'🚶 步行',desc:'沿陵园路步行上山',duration:'约15分钟'} },
+    { id:'zhongshanling', name:'中山陵', day:3, order:2, time:'09:45 - 11:30', lat:32.060581, lng:118.851736, type:'landmark', tags:["🏛️ 5A景区", "🇨🇳 历史", "🔥 必去"], tagClasses:["tag-culture", "tag-history", "tag-hot"], image:'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=400&q=80', address:'南京市玄武区石象路7号', desc:'中山陵是伟大革命先行者孙中山先生的陵寝，依紫金山而建，气势恢宏。392级台阶从博爱坊直通祭堂，寓意深远。', foods:[], photos:[{name:'博爱坊',note:'中山陵标志性牌坊'},{name:'祭堂',note:'仰望蓝天白云下的琉璃瓦'}], tips:'免费但需提前预约；建议早上前往避开人流；392级台阶需体力', transport_to_next:{mode:'🚕 打车',desc:'从中山陵打车前往总统府',duration:'约25分钟'} },
+    { id:'zongtongfu', name:'总统府', day:3, order:3, time:'12:00 - 14:00', lat:32.049174, lng:118.792519, type:'landmark', tags:["🏛️ 民国", "🇨🇳 历史", "🔥 必去"], tagClasses:["tag-culture", "tag-history", "tag-hot"], image:'https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=400&q=80', address:'南京市玄武区长江路292号', desc:'南京总统府是中国近代史上重要的政治中枢，既是太平天国天王府，也是中华民国临时大总统府。中西合璧的建筑群见证了百年风云。', foods:[{name:'1912街区午餐',note:'总统府旁的民国风情餐饮区'}], photos:[{name:'大门',note:'标志性的青天白日门楼'},{name:'煦园',note:'精致的江南园林'}], tips:'门票35元；建议2小时游览；旁边1912街区可用餐', transport_to_next:{mode:'🚕 打车',desc:'打车前往美龄宫/梧桐大道',duration:'约20分钟'} },
+    { id:'meilinggong', name:'美龄宫·梧桐大道', day:3, order:4, time:'14:30 - 16:30', lat:32.060758, lng:118.83771, type:'landmark', tags:["💎 项链", "🌳 梧桐", "📸 必拍"], tagClasses:["tag-culture", "tag-nature", "tag-photo"], image:'https://images.unsplash.com/photo-1603024406311-a1b7e5f0b834?w=400&q=80', address:'南京市玄武区紫金山南麓四方城以东小红山上', desc:'美龄宫是蒋介石与宋美龄的别墅，俯瞰陵园路，两旁梧桐树从空中鸟瞰形如一条项链，美龄宫正是「项链吊坠」。被称为「南京最美600米」。', foods:[], photos:[{name:'空中项链',note:'航拍角度看梧桐大道如项链'},{name:'美龄宫内部',note:'宋美龄起居室保存完好'}], tips:'门票30元；秋季梧桐金黄时最美，初夏绿意也很好', transport_to_next:{mode:'🚕 打车',desc:'打车前往南京南站',duration:'约35分钟'} },
+    { id:'nanjing_south_dep', name:'南京南站（返程）', day:3, order:5, time:'20:27 出发', lat:31.974425, lng:118.797346, type:'transport', tags:["🚄 高铁", "终点"], tagClasses:["tag-transport", "tag-end"], address:'南京市雨花台区南京南站', desc:'结束三天的南京之旅，乘高铁返回北京。南京，再见！', foods:[], photos:[], tips:'建议提前1小时到站；站内有各类南京特产可选购' }
+];
+
+// ===================== MAP =====================
+const map = L.map('map',{center:[32.04,118.8],zoom:12,zoomControl:false});
+L.control.zoom({position:'topleft'}).addTo(map);
+
+// Map tiles: clean base map approach
+// Use multiple tile sources with auto-fallback. The CSS filter on .leaflet-tile-pane
+// desaturates and lightens the base map, fading out POI labels while keeping roads visible.
+// Our custom markers and route lines sit above the filtered tiles.
+const tileConfigs = [
+        // Google 地图（WGS84坐标系，与标注点一致）
+        { url:'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=zh-CN', opts:{subdomains:'0123',maxZoom:20,attribution:'&copy; Google'} },
+        // OSM 备选（同样使用WGS84）
+        { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts:{maxZoom:19,attribution:'&copy; OpenStreetMap'} },
+        // 高德兜底（注意：高德使用GCJ02坐标系，标注会有偏移）
+        { url:'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', opts:{subdomains:'1234',maxZoom:18,attribution:'&copy; 高德地图'} }
+    ];
+let currentTileIdx = 0;
+let currentTile = null;
+function loadTileLayer(idx) {
+    if (idx >= tileConfigs.length) return;
+    if (currentTile) map.removeLayer(currentTile);
+    currentTileIdx = idx;
+    const cfg = tileConfigs[idx];
+    currentTile = L.tileLayer(cfg.url, cfg.opts).addTo(map);
+    let errCount = 0;
+    currentTile.on('tileerror', function() {
+        errCount++;
+        if (errCount >= 2) { loadTileLayer(idx + 1); }
+    });
+}
+loadTileLayer(0);
+
+let markers=[], routeLines=[];
+function getDayClass(d){return d===1?'day1':d===2?'day2':d===3?'day3':'day3'}
+function getDayColor(d){return d===1?'#2D8C4E':d===2?'#2563EB':d===3?'#E06C2D':'#E06C2D'}
+
+function createMarker(spot){
+    if(spot.noMarker)return;
+    const dc=spot.type==='hotel'?'hotel':getDayClass(spot.day);
+    const markerIcon=L.divIcon({
+        className:'custom-marker',
+        html:`<div class="marker-pin ${dc}"><span class="marker-number">${spot.type==='hotel'?'♥':spot.order}</span></div><div class="marker-label">${spot.name.length>8?spot.name.substring(0,8)+'…':spot.name}</div>`,
+        iconSize:[30,30],iconAnchor:[15,30]
+    });
+    const m=L.marker([spot.lat,spot.lng],{icon:markerIcon}).addTo(map).on('click',()=>openDetail(spot.id));
+    m.spotId=spot.id;m.spotDay=spot.day;markers.push(m);
+}
+
+function drawRouteLines(days){
+    routeLines.forEach(l=>map.removeLayer(l));routeLines=[];
+    days.forEach(day=>{
+        const ds=spots.filter(s=>s.day===day&&!s.noMarker).sort((a,b)=>a.order-b.order);
+        if(ds.length<2)return;
+        const line=L.polyline(ds.map(s=>[s.lat,s.lng]),{color:getDayColor(day),weight:3.5,opacity:.7,dashArray:'10,8',smoothFactor:1.5}).addTo(map);
+        routeLines.push(line);
+    });
+}
+
+
+// ===================== LOCAL STORAGE + CROSS-DEVICE SYNC =====================
+const STORAGE_KEY = 'nanjing_trip_custom_data';
+const URL_PARAM_KEY = 'sync';
+
+// ---- Core storage functions ----
+function getStoredData(){
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : { coordOverrides:{}, customSpots:[] };
+    } catch(e){ return { coordOverrides:{}, customSpots:[] }; }
+}
+
+function setStoredData(data){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
+}
+
+function loadCustomData(){
+    // Priority: URL params > localStorage
+    let data = null;
+    
+    // Check URL for sync data
+    const urlData = loadFromUrl();
+    if(urlData){
+        data = urlData;
+        // Save URL data to localStorage for future refreshes
+        setStoredData(data);
+        // Clean URL without reload
+        const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+        window.history.replaceState(null, '', cleanUrl);
+        showSyncToast('✓ 已从同步链接加载修改');
+    } else {
+        data = getStoredData();
+    }
+    
+    if(!data) return;
+    
+    // Apply coordinate overrides
+    if(data.coordOverrides){
+        Object.entries(data.coordOverrides).forEach(([id, coords])=>{
+            const spot = spots.find(s=>s.id===id);
+            if(spot){ spot.lat=coords.lat; spot.lng=coords.lng; }
+        });
+    }
+    
+    // Add custom spots
+    if(data.customSpots && data.customSpots.length){
+        data.customSpots.forEach(cs=>{
+            if(!spots.find(s=>s.id===cs.id)){
+                spots.push(cs);
+            }
+        });
+    }
+    
+    const overrideCount = Object.keys(data.coordOverrides||{}).length;
+    const customCount = (data.customSpots||[]).length;
+    if(overrideCount || customCount){
+        console.log('[Sync] Loaded:', overrideCount, 'coord overrides,', customCount, 'custom spots');
+    }
+    
+    // Update badge
+    updateSyncBadge();
+}
+
+function saveCoordOverride(spotId, lat, lng){
+    const data = getStoredData();
+    data.coordOverrides[spotId] = { lat, lng };
+    setStoredData(data);
+    updateSyncBadge();
+}
+
+function saveCustomSpot(spot){
+    const data = getStoredData();
+    data.customSpots = data.customSpots.filter(s=>s.id!==spot.id);
+    // Clone to avoid circular refs
+    const clean = JSON.parse(JSON.stringify(spot));
+    data.customSpots.push(clean);
+    setStoredData(data);
+    updateSyncBadge();
+}
+
+function resetAllCustomData(){
+    if(!confirm('确定要重置所有修改吗？\n将还原所有手动调整的坐标，并删除所有新增的打卡点。')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+}
+
+// ---- Sync badge ----
+function updateSyncBadge(){
+    const data = getStoredData();
+    const count = Object.keys(data.coordOverrides||{}).length + (data.customSpots||[]).length;
+    const badge = document.getElementById('syncBadge');
+    const status = document.getElementById('syncStatus');
+    if(badge){
+        if(count > 0){ badge.style.display='flex'; badge.textContent=count; }
+        else { badge.style.display='none'; }
+    }
+    if(status){
+        if(count > 0){
+            status.classList.add('has-data');
+            const parts = [];
+            const oc = Object.keys(data.coordOverrides||{}).length;
+            const sc = (data.customSpots||[]).length;
+            if(oc) parts.push(oc+'项坐标调整');
+            if(sc) parts.push(sc+'个新增点');
+            status.textContent = '已保存: '+parts.join(', ');
+        } else {
+            status.classList.remove('has-data');
+        }
+    }
+}
+
+// ---- Toast notification ----
+function showSyncToast(msg, duration){
+    const el = document.getElementById('syncToast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(()=>el.classList.remove('show'), duration||2500);
+}
+
+// ---- Sync menu toggle ----
+function toggleSyncMenu(){
+    const menu = document.getElementById('syncMenu');
+    if(!menu) return;
+    menu.classList.toggle('show');
+    // Close on outside click
+    if(menu.classList.contains('show')){
+        setTimeout(()=>{
+            const handler = (e)=>{
+                if(!menu.contains(e.target) && e.target.id!=='syncFab'){
+                    menu.classList.remove('show');
+                    document.removeEventListener('click', handler);
+                }
+            };
+            document.addEventListener('click', handler);
+        }, 10);
+    }
+}
+
+// ---- URL Sync (encode data into URL hash) ----
+function compressData(data){
+    // Use base64 encoding of JSON for URL-safe transport
+    const json = JSON.stringify(data);
+    try {
+        // Try using compression via btoa
+        return btoa(unescape(encodeURIComponent(json)));
+    } catch(e){
+        return btoa(json);
+    }
+}
+
+function decompressData(str){
+    try {
+        const json = decodeURIComponent(escape(atob(str)));
+        return JSON.parse(json);
+    } catch(e){
+        try { return JSON.parse(atob(str)); }
+        catch(e2){ return null; }
+    }
+}
+
+function loadFromUrl(){
+    const params = new URLSearchParams(window.location.search);
+    const syncParam = params.get(URL_PARAM_KEY);
+    if(!syncParam) return null;
+    return decompressData(syncParam);
+}
+
+function generateSyncUrl(){
+    const data = getStoredData();
+    const count = Object.keys(data.coordOverrides||{}).length + (data.customSpots||[]).length;
+    if(count === 0){
+        showSyncToast('暂无修改需要同步');
+        return;
+    }
+    
+    const encoded = compressData(data);
+    const base = window.location.href.split('?')[0].split('#')[0];
+    const syncUrl = base + '?' + URL_PARAM_KEY + '=' + encodeURIComponent(encoded);
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(syncUrl).then(()=>{
+        showSyncToast('✓ 同步链接已复制到剪贴板');
+    }).catch(()=>{
+        // Fallback: show in prompt
+        prompt('复制此链接到其他设备打开：', syncUrl);
+    });
+    
+    document.getElementById('syncMenu').classList.remove('show');
+}
+
+// ---- File Export/Import ----
+function exportConfig(){
+    const data = getStoredData();
+    const count = Object.keys(data.coordOverrides||{}).length + (data.customSpots||[]).length;
+    if(count === 0){
+        showSyncToast('暂无修改需要导出');
+        return;
+    }
+    
+    const exportData = {
+        _version: '1.0',
+        _exportTime: new Date().toISOString(),
+        _description: '港澳旅行地图 - 自定义配置',
+        ...data
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'nanjing_trip_config_' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showSyncToast('✓ 配置已导出');
+    document.getElementById('syncMenu').classList.remove('show');
+}
+
+function importConfig(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e){
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Validate structure
+            if(!data.coordOverrides && !data.customSpots){
+                showSyncToast('⚠ 无效的配置文件');
+                return;
+            }
+            
+            const existing = getStoredData();
+            
+            // Merge: imported data overwrites existing
+            if(data.coordOverrides){
+                Object.assign(existing.coordOverrides, data.coordOverrides);
+            }
+            if(data.customSpots){
+                data.customSpots.forEach(cs=>{
+                    existing.customSpots = existing.customSpots.filter(s=>s.id!==cs.id);
+                    existing.customSpots.push(cs);
+                });
+            }
+            
+            setStoredData(existing);
+            
+            const oc = Object.keys(data.coordOverrides||{}).length;
+            const sc = (data.customSpots||[]).length;
+            showSyncToast('✓ 已导入 '+oc+' 项坐标 + '+sc+' 个打卡点，刷新生效', 3000);
+            
+            setTimeout(()=>location.reload(), 1500);
+        } catch(err){
+            showSyncToast('⚠ 文件解析失败: '+err.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset for re-upload
+    document.getElementById('syncMenu').classList.remove('show');
+}
+
+// Load saved data before creating markers
+loadCustomData();
+
+
+spots.forEach(createMarker);
+drawRouteLines([1,2,3,4]);
+
+// ===================== SIDEBAR =====================
+const daysMeta=[
+    {num:1,title:'Day 1 · 景点游玩',sub:'5/2 北京→南京南·牛首山·玄武湖·颐和路',color:'var(--day1)'},
+    {num:2,title:'Day 2 · City Walk',sub:'5/3 民国路·颐和路·金银街·德基艺术博物馆',color:'var(--day2)'},
+    {num:3,title:'Day 3 · 钟山风景区',sub:'5/4 音乐台·中山陵·总统府·美龄宫→返京',color:'var(--day3)'}
+];
+
+function renderSidebar(fd){
+    const sb=document.getElementById('sidebar');let html='';
+    const filtered=fd==='all'?daysMeta:daysMeta.filter(d=>d.num===fd);
+    filtered.forEach(day=>{
+        const ds=spots.filter(s=>s.day===day.num).sort((a,b)=>a.order-b.order);
+        html+=`<div class="day-section"><div class="day-header"><div class="day-dot" style="background:${day.color}"></div><div class="day-header-text"><h3>${day.title}</h3><p>${day.sub}</p></div></div><div class="timeline">`;
+        ds.forEach((spot,idx)=>{
+            const dc=getDayClass(day.num);
+            html+=`<div class="timeline-item ${dc}" data-spot-id="${spot.id}" onclick="openDetail('${spot.id}')"><div class="timeline-dot"></div><div class="spot-card"><div class="spot-card-top"><span class="spot-name">${spot.name}</span><span class="spot-time">${spot.time}</span></div>`;
+            if(spot.tags.length)html+=`<div class="spot-tags">${spot.tags.map((t,i)=>`<span class="spot-tag ${spot.tagClasses[i]||''}">${t}</span>`).join('')}</div>`;
+            html+=`</div></div>`;
+            if(spot.transport_to_next&&idx<ds.length-1)html+=`<div class="transport-connector"><span>${spot.transport_to_next.mode.split(' ')[0]}</span><span>${spot.transport_to_next.desc}</span><span class="transport-line"></span><span class="transport-duration">${spot.transport_to_next.duration}</span></div>`;
+        });
+        html+=`</div></div>`;
+    });
+    sb.innerHTML=html;
+}
+renderSidebar('all');
+
+// ===================== FILTER =====================
+let currentFilter='all';
+function filterDay(day){
+    currentFilter=day;
+    document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector(`.day-tab[data-day="${day}"]`).classList.add('active');
+    renderSidebar(day);
+    markers.forEach(m=>{m.setOpacity(day==='all'?1:m.spotDay===day?1:.1)});
+    drawRouteLines(day==='all'?[1,2,3,4]:[day]);
+    const fs=day==='all'?spots.filter(s=>!s.noMarker):spots.filter(s=>s.day===day&&!s.noMarker);
+    if(fs.length){const b=L.latLngBounds(fs.map(s=>[s.lat,s.lng]));map.fitBounds(b.pad(.2));}
+}
+
+// ===================== DETAIL PANEL (RIGHT SIDE) =====================
+function getNextSpot(currentId){
+    const cur=spots.find(s=>s.id===currentId);if(!cur)return null;
+    const daySpots=spots.filter(s=>s.day===cur.day).sort((a,b)=>a.order-b.order);
+    const idx=daySpots.findIndex(s=>s.id===currentId);
+    if(idx<daySpots.length-1)return daySpots[idx+1];
+    const nextDay=spots.filter(s=>s.day===cur.day+1).sort((a,b)=>a.order-b.order);
+    return nextDay.length?nextDay[0]:null;
+}
+function getPrevSpot(currentId){
+    const cur=spots.find(s=>s.id===currentId);if(!cur)return null;
+    const daySpots=spots.filter(s=>s.day===cur.day).sort((a,b)=>a.order-b.order);
+    const idx=daySpots.findIndex(s=>s.id===currentId);
+    if(idx>0)return daySpots[idx-1];
+    const prevDay=spots.filter(s=>s.day===cur.day-1).sort((a,b)=>a.order-b.order);
+    return prevDay.length?prevDay[prevDay.length-1]:null;
+}
+function getSpotIndex(spotId){
+    const s=spots.find(x=>x.id===spotId);if(!s)return{cur:0,total:0};
+    const daySpots=spots.filter(x=>x.day===s.day).sort((a,b)=>a.order-b.order);
+    return{cur:daySpots.findIndex(x=>x.id===spotId)+1,total:daySpots.length,day:s.day};
+}
+
+function openDetail(spotId){
+    const spot=spots.find(s=>s.id===spotId);if(!spot)return;
+    document.querySelectorAll('.timeline-item').forEach(el=>el.classList.remove('active'));
+    const si=document.querySelector(`.timeline-item[data-spot-id="${spotId}"]`);
+    if(si){si.classList.add('active');si.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+    // Auto-switch day filter if needed
+    if(currentFilter!=='all' && spot.day!==currentFilter){
+        filterDay(spot.day);
+    }
+
+    // Highlight selected marker
+    highlightMarker(spotId, spot.day, spot.type);
+
+    // Pan map to spot
+    const point=map.latLngToContainerPoint([spot.lat,spot.lng]);
+    const panelWidth=380;
+    const offsetPoint=L.point(point.x-panelWidth/2, point.y);
+    const offsetLatLng=map.containerPointToLatLng(offsetPoint);
+    map.flyTo([spot.lat, offsetLatLng.lng<spot.lng?spot.lng:offsetLatLng.lng], spot.day>=3?15:14,{duration:.5});
+
+    const dc=getDayColor(spot.day);
+    const next=getNextSpot(spotId);
+    const prev=getPrevSpot(spotId);
+    const idx=getSpotIndex(spotId);
+
+    // Wire edit button in top bar
+    const editBtn=document.getElementById('detailEditBtn');
+    if(editBtn){
+        if(spot.noMarker){editBtn.style.display='none';}
+        else{editBtn.style.display='flex';editBtn.onclick=function(){startEditPosition(spot.id);};}
+    }
+
+    // Top nav bar
+    let navHtml=`<button class="detail-nav-btn" ${prev?`onclick="openDetail('${prev.id}')"`:'disabled'}><span class="arrow">←</span> 上一站</button>`;
+    navHtml+=`<span class="detail-nav-counter">Day${idx.day} · ${idx.cur}/${idx.total}</span>`;
+    navHtml+=`<button class="detail-nav-btn" ${next?`onclick="openDetail('${next.id}')"`:'disabled'}>下一站 <span class="arrow">→</span></button>`;
+    document.getElementById('detailNavTop').innerHTML=navHtml;
+
+    // Image (no edit button inside image anymore)
+    let imageHtml='';
+    if(spot.image){
+        imageHtml=`<div class="detail-image"><img src="${spot.image}" alt="${spot.name}" onerror="this.parentElement.innerHTML='<div class=detail-image-placeholder>${getEmoji(spot.type)}</div>'"><div class="detail-day-badge" style="background:${dc}">Day ${spot.day}</div></div>`;
+    } else {
+        imageHtml=`<div class="detail-image"><div class="detail-image-placeholder" style="background:linear-gradient(135deg,${dc}22,${dc}44);color:${dc};font-size:24px;font-weight:700;letter-spacing:2px">${spot.name.substring(0,4)}</div><div class="detail-day-badge" style="background:${dc}">Day ${spot.day}</div></div>`;
+    }
+
+    let html=imageHtml+`
+        <div class="detail-header"><div class="detail-title">${spot.name}</div>
+        <div class="detail-meta"><span class="detail-badge" style="background:${dc}15;color:${dc};border:1px solid ${dc}30">Day ${spot.day}</span><span class="detail-badge">${spot.time}</span>${spot.tags.map(t=>`<span class="detail-badge">${t}</span>`).join('')}</div></div>
+        <div class="detail-body">
+        <div class="detail-section"><div class="detail-section-title">📍 位置</div><div class="detail-section-content">${spot.address}</div></div>
+        <div class="detail-section"><div class="detail-section-title">📝 简介</div><div class="detail-section-content">${spot.desc}</div></div>`;
+
+    if(spot.foods&&spot.foods.length){
+        html+=`<div class="detail-section"><div class="detail-section-title">🍽️ 推荐美食</div><div class="detail-section-content">`;
+        spot.foods.forEach(f=>html+=`<div class="detail-food-item"><span class="detail-food-emoji">${f.emoji}</span><div><div class="detail-food-name">${f.name}</div><div class="detail-food-desc">${f.desc}</div></div></div>`);
+        html+=`</div></div>`;
+    }
+    if(spot.photos&&spot.photos.length){
+        html+=`<div class="detail-section"><div class="detail-section-title">📸 推荐机位</div><div class="detail-section-content">${spot.photos.map(p=>`<div class="photo-spot-item">${p}</div>`).join('')}</div></div>`;
+    }
+    if(spot.tips)html+=`<div class="detail-section"><div class="detail-section-title">💡 小贴士</div><div class="detail-tip">${spot.tips}</div></div>`;
+    if(spot.transport_to_next)html+=`<div class="detail-section"><div class="detail-section-title">🚌 前往下一站</div><div class="detail-tip"><strong>${spot.transport_to_next.mode}</strong> ${spot.transport_to_next.desc}<br/>预计 ${spot.transport_to_next.duration}</div></div>`;
+    html+=`</div>`;
+
+    document.getElementById('detailContent').innerHTML=html;
+    document.getElementById('detailPanel').scrollTop=0;
+    document.getElementById('detailPanel').classList.add('open');
+}
+
+
+function getEmoji(type){
+    const emojis={'hotel':'🏨','landmark':'🏛️','activity':'🎡','shop':'🛍️','photo':'📸','transport':'⛴️'};
+    return emojis[type]||'📍';
+}
+
+let activeMarkerId=null;
+function highlightMarker(spotId, day, type){
+    // Remove previous highlight
+    clearMarkerHighlight();
+    activeMarkerId=spotId;
+    const marker=markers.find(m=>m.spotId===spotId);
+    if(!marker)return;
+    const el=marker.getElement();
+    if(!el)return;
+    el.classList.add('marker-active');
+    const pin=el.querySelector('.marker-pin');
+    const label=el.querySelector('.marker-label');
+    const dc=type==='hotel'?'hotel':getDayClass(day);
+    if(pin){pin.classList.add('selected');}
+    if(label){label.classList.add('marker-label-selected');}
+    // Add pulse ring
+    let pulse=el.querySelector('.marker-pulse');
+    if(!pulse){pulse=document.createElement('div');pulse.className='marker-pulse '+dc;el.appendChild(pulse);}
+}
+function clearMarkerHighlight(){
+    if(!activeMarkerId)return;
+    const marker=markers.find(m=>m.spotId===activeMarkerId);
+    if(marker){
+        const el=marker.getElement();
+        if(el){
+            el.classList.remove('marker-active');
+            const pin=el.querySelector('.marker-pin');
+            const label=el.querySelector('.marker-label');
+            if(pin)pin.classList.remove('selected');
+            if(label)label.classList.remove('marker-label-selected');
+            const pulse=el.querySelector('.marker-pulse');
+            if(pulse)pulse.remove();
+        }
+    }
+    activeMarkerId=null;
+}
+
+function closeDetail(){
+    document.getElementById('detailPanel').classList.remove('fullscreen');
+    document.getElementById('detailPanel').classList.remove('open');
+    document.querySelectorAll('.timeline-item').forEach(el=>el.classList.remove('active'));
+    clearMarkerHighlight();
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
+
+// Init view
+setTimeout(()=>{const b=L.latLngBounds(spots.map(s=>[s.lat,s.lng]));map.fitBounds(b.pad(.15));},300);
+
+
+// ===================== SIDEBAR TOGGLE =====================
+function toggleSidebar(){
+    const sb=document.getElementById('sidebar');
+    const tb=document.getElementById('sidebarToggle');
+    const eb=document.getElementById('sidebarExpand');
+    const isCollapsed=sb.classList.toggle('collapsed');
+    if(isCollapsed){
+        tb.style.display='none';
+        eb.classList.add('show');
+    } else {
+        tb.style.display='flex';
+        tb.classList.remove('collapsed');
+        eb.classList.remove('show');
+    }
+    setTimeout(()=>map.invalidateSize(),400);
+}
+
+// ===================== EDIT MARKER POSITION =====================
+let editingSpotId=null;
+let editingMarker=null;
+let editOriginalLatLng=null;
+
+function startEditPosition(spotId){
+    if(editingSpotId)cancelEditPosition();
+    editingSpotId=spotId;
+    const marker=markers.find(m=>m.spotId===spotId);
+    if(!marker)return;
+    editingMarker=marker;
+    editOriginalLatLng=marker.getLatLng();
+    marker.dragging.enable();
+    document.getElementById('editBar').classList.add('show');
+    closeDetail();
+    // Visual feedback
+    const el=marker.getElement();
+    if(el)el.style.filter='drop-shadow(0 0 8px rgba(255,100,0,.6))';
+}
+function saveMarkerPosition(){
+    if(!editingSpotId||!editingMarker)return;
+    const newLL=editingMarker.getLatLng();
+    const spot=spots.find(s=>s.id===editingSpotId);
+    if(spot){spot.lat=newLL.lat;spot.lng=newLL.lng; saveCoordOverride(spot.id, newLL.lat, newLL.lng);}
+    editingMarker.dragging.disable();
+    const el=editingMarker.getElement();
+    if(el)el.style.filter='';
+    document.getElementById('editBar').classList.remove('show');
+    // Redraw route lines
+    drawRouteLines(currentFilter==='all'?[1,2,3,4]:[currentFilter]);
+    editingSpotId=null;editingMarker=null;editOriginalLatLng=null;
+}
+function cancelEditPosition(){
+    if(!editingSpotId||!editingMarker)return;
+    editingMarker.setLatLng(editOriginalLatLng);
+    editingMarker.dragging.disable();
+    const el=editingMarker.getElement();
+    if(el)el.style.filter='';
+    document.getElementById('editBar').classList.remove('show');
+    editingSpotId=null;editingMarker=null;editOriginalLatLng=null;
+}
+
+
+// ===================== ADD SPOT FEATURE =====================
+let pickingLocation = false;
+let pickMarker = null;
+
+function showAddSpotModal(){
+    document.getElementById('addSpotModal').classList.add('show');
+    // Default day to current filter
+    if(currentFilter && currentFilter !== 'all'){
+        document.getElementById('addDay').value = currentFilter;
+    }
+}
+
+function hideAddSpotModal(){
+    document.getElementById('addSpotModal').classList.remove('show');
+    stopPickLocation();
+    // Clear form
+    ['addName','addTime','addAddress','addDesc','addImage','addLat','addLng','addTags','addTips'].forEach(id=>{
+        document.getElementById(id).value='';
+    });
+}
+
+function togglePickLocation(){
+    if(pickingLocation){stopPickLocation();}
+    else{startPickLocation();}
+}
+
+function startPickLocation(){
+    pickingLocation=true;
+    document.getElementById('pickLocBtn').classList.add('active');
+    document.getElementById('pickLocBtn').textContent='🎯 选点中...点击地图';
+    document.getElementById('addSpotModal').style.pointerEvents='none';
+    document.getElementById('addSpotModal').style.opacity='0.3';
+    map.getContainer().style.cursor='crosshair';
+    map.on('click', onMapPickLocation);
+}
+
+function stopPickLocation(){
+    pickingLocation=false;
+    document.getElementById('pickLocBtn').classList.remove('active');
+    document.getElementById('pickLocBtn').textContent='🎯 地图选点';
+    document.getElementById('addSpotModal').style.pointerEvents='auto';
+    document.getElementById('addSpotModal').style.opacity='1';
+    map.getContainer().style.cursor='';
+    map.off('click', onMapPickLocation);
+    if(pickMarker){map.removeLayer(pickMarker);pickMarker=null;}
+}
+
+function onMapPickLocation(e){
+    const lat=e.latlng.lat.toFixed(4);
+    const lng=e.latlng.lng.toFixed(4);
+    document.getElementById('addLat').value=lat;
+    document.getElementById('addLng').value=lng;
+    if(pickMarker)map.removeLayer(pickMarker);
+    pickMarker=L.marker([lat,lng],{icon:L.divIcon({className:'',html:'<div style="width:20px;height:20px;background:#2563EB;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map);
+    stopPickLocation();
+}
+
+function saveNewSpot(){
+    const name=document.getElementById('addName').value.trim();
+    const day=parseInt(document.getElementById('addDay').value);
+    const lat=parseFloat(document.getElementById('addLat').value);
+    const lng=parseFloat(document.getElementById('addLng').value);
+    
+    if(!name){alert('请输入打卡点名称');return;}
+    if(isNaN(lat)||isNaN(lng)){alert('请设置坐标位置（点击「地图选点」在地图上选取）');return;}
+    
+    const type=document.getElementById('addType').value;
+    const time=document.getElementById('addTime').value.trim()||'待定';
+    const address=document.getElementById('addAddress').value.trim()||'';
+    const desc=document.getElementById('addDesc').value.trim()||'';
+    const image=document.getElementById('addImage').value.trim()||'';
+    const tips=document.getElementById('addTips').value.trim()||'';
+    const tagsStr=document.getElementById('addTags').value.trim();
+    const tags=tagsStr?tagsStr.split(',').map(t=>t.trim()):[];
+    const tagClasses=tags.map(()=>'');
+    
+    // Calculate order: append after last spot of this day
+    const daySpots=spots.filter(s=>s.day===day);
+    const maxOrder=daySpots.length?Math.max(...daySpots.map(s=>s.order)):0;
+    const order=maxOrder+1;
+    
+    const id='custom_'+Date.now();
+    
+    const newSpot={
+        id, name, day, order, time, lat, lng, type,
+        tags, tagClasses,
+        image, address, desc,
+        foods:[], photos:[], tips,
+        _custom:true
+    };
+    
+    spots.push(newSpot);
+    createMarker(newSpot);
+    drawRouteLines();
+    renderSidebar();
+    saveCustomSpot(newSpot);
+    
+    hideAddSpotModal();
+    
+    // Open the new spot detail
+    setTimeout(()=>openDetail(id),300);
+}
+
+// ===================== FULLSCREEN DETAIL =====================
+function toggleDetailFullscreen(){
+    const panel=document.getElementById('detailPanel');
+    panel.classList.toggle('fullscreen');
+    const btn=panel.querySelector('.detail-fullscreen-btn');
+    if(panel.classList.contains('fullscreen')){
+        btn.textContent='⊗';
+        btn.title='退出全屏';
+    } else {
+        btn.textContent='⛶';
+        btn.title='全屏';
+    }
+}
+
+// closeDetail already handles fullscreen exit
+
+</script>
+
+<!-- ADD SPOT FAB -->
+<!-- SYNC TOOLBAR -->
+<div class="sync-toolbar" id="syncToolbar">
+    <button class="fab-btn primary" onclick="showAddSpotModal()" title="新增打卡点">+</button>
+    <button class="fab-btn sync" onclick="toggleSyncMenu()" title="同步管理" id="syncFab">⇄<span class="fab-badge" id="syncBadge" style="display:none">0</span></button>
+    <div class="fab-menu" id="syncMenu">
+        <div class="fab-menu-item" onclick="generateSyncUrl()"><span class="menu-icon">🔗</span>生成同步链接</div>
+        <div class="fab-menu-item" onclick="exportConfig()"><span class="menu-icon">📤</span>导出配置文件</div>
+        <div class="fab-menu-item" onclick="document.getElementById('importFileInput').click()"><span class="menu-icon">📥</span>导入配置文件</div>
+        <div class="fab-menu-divider"></div>
+        <div class="fab-menu-item" onclick="resetAllCustomData()"><span class="menu-icon">↺</span>重置所有修改</div>
+    </div>
+    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importConfig(event)">
+    <div class="sync-status" id="syncStatus"></div>
+</div>
+<div class="sync-toast" id="syncToast"></div>
+
+<!-- ADD SPOT MODAL -->
+<div class="modal-overlay" id="addSpotModal">
+    <div class="modal-box">
+        <div class="modal-title">📍 新增打卡点</div>
+        <div class="modal-row">
+            <div class="modal-field"><label class="modal-label">名称 *</label><input class="modal-input" id="addName" placeholder="如：星巴克海港城店"></div>
+            <div class="modal-field"><label class="modal-label">所属天数 *</label>
+                <select class="modal-select" id="addDay"><option value="1">Day 1</option><option value="2">Day 2</option><option value="3">Day 3</option></select>
+            </div>
+        </div>
+        <div class="modal-row">
+            <div class="modal-field"><label class="modal-label">时间</label><input class="modal-input" id="addTime" placeholder="如：14:00-15:30"></div>
+            <div class="modal-field"><label class="modal-label">类型</label>
+                <select class="modal-select" id="addType"><option value="landmark">🏛️ 地标</option><option value="food">🍜 美食</option><option value="shop">🛍️ 购物</option><option value="photo">📸 拍照</option><option value="activity">🎯 体验</option><option value="hotel">🏨 住宿</option><option value="transport">🚌 交通</option></select>
+            </div>
+        </div>
+        <div class="modal-field"><label class="modal-label">地址</label><input class="modal-input" id="addAddress" placeholder="详细地址"></div>
+        <div class="modal-field"><label class="modal-label">简介</label><textarea class="modal-textarea" id="addDesc" placeholder="简单描述这个打卡点"></textarea></div>
+        <div class="modal-field"><label class="modal-label">图片链接</label><input class="modal-input" id="addImage" placeholder="https://..."></div>
+        <div class="modal-field">
+            <label class="modal-label">坐标位置 *</label>
+            <div style="display:flex;gap:8px;align-items:center">
+                <input class="modal-input" id="addLat" placeholder="纬度" style="width:120px">
+                <input class="modal-input" id="addLng" placeholder="经度" style="width:120px">
+                <button class="modal-pick-btn" id="pickLocBtn" onclick="togglePickLocation()">🎯 地图选点</button>
+            </div>
+            <div class="modal-hint">点击「地图选点」后，在地图上点击任意位置获取坐标</div>
+        </div>
+        <div class="modal-field"><label class="modal-label">标签（逗号分隔）</label><input class="modal-input" id="addTags" placeholder="如：🍜 美食, 📸 出片"></div>
+        <div class="modal-field"><label class="modal-label">小贴士</label><textarea class="modal-textarea" id="addTips" placeholder="实用建议" rows="2"></textarea></div>
+        <div class="modal-actions">
+            <button class="modal-btn" onclick="hideAddSpotModal()">取消</button>
+            <button class="modal-btn primary" onclick="saveNewSpot()">✓ 保存打卡点</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
