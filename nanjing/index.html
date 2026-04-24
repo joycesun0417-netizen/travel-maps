@@ -18,6 +18,8 @@
 
         /* === HEADER === */
         .header{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(250,249,247,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+        .back-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:14px;color:var(--text);transition:all .2s;text-decoration:none;flex-shrink:0}
+        .back-btn:hover{background:#F3F4F6;border-color:#aaa;transform:scale(1.05)}
         .header-left{display:flex;align-items:center;gap:10px}
         .header-logo{font-size:22px}
         .header-title{font-size:16px;font-weight:700;letter-spacing:.5px}
@@ -292,6 +294,7 @@
 <body>
 <div class="header">
     <div class="header-left">
+        <a class="back-btn" href="../" title="返回旅行地图集">←</a>
         <span class="header-logo">🏯</span>
         <div>
             <div class="header-title">南京三日漫游</div>
@@ -805,11 +808,11 @@ function openDetail(spotId){
 
     if(spot.foods&&spot.foods.length){
         html+=`<div class="detail-section"><div class="detail-section-title">🍽️ 推荐美食</div><div class="detail-section-content">`;
-        spot.foods.forEach(f=>html+=`<div class="detail-food-item"><span class="detail-food-emoji">${f.emoji}</span><div><div class="detail-food-name">${f.name}</div><div class="detail-food-desc">${f.desc}</div></div></div>`);
+        spot.foods.forEach(f=>html+=`<div class="detail-food-item"><span class="detail-food-emoji">🍜</span><div><div class="detail-food-name">${f.name}</div><div class="detail-food-desc">${f.note||''}</div></div></div>`);
         html+=`</div></div>`;
     }
     if(spot.photos&&spot.photos.length){
-        html+=`<div class="detail-section"><div class="detail-section-title">📸 推荐机位</div><div class="detail-section-content">${spot.photos.map(p=>`<div class="photo-spot-item">${p}</div>`).join('')}</div></div>`;
+        html+=`<div class="detail-section"><div class="detail-section-title">📸 推荐机位</div><div class="detail-section-content">${spot.photos.map(p=>`<div class="photo-spot-item"><strong>${p.name}</strong>：${p.note||''}</div>`).join('')}</div></div>`;
     }
     if(spot.tips)html+=`<div class="detail-section"><div class="detail-section-title">💡 小贴士</div><div class="detail-tip">${spot.tips}</div></div>`;
     if(spot.transport_to_next)html+=`<div class="detail-section"><div class="detail-section-title">🚌 前往下一站</div><div class="detail-tip"><strong>${spot.transport_to_next.mode}</strong> ${spot.transport_to_next.desc}<br/>预计 ${spot.transport_to_next.duration}</div></div>`;
